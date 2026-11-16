@@ -1,0 +1,30 @@
+{
+  "name": "seg-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SEG Academy CRM - Modular Monolith Monorepo",
+  "packageManager": "npm@11.20.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rimraf node_modules",
+    "db:generate": "npm --workspace=@seg/database run generate",
+    "db:push": "npm --workspace=@seg/database run push",
+    "db:studio": "npm --workspace=@seg/database run studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "typescript": "^5.7.3",
+    "@types/node": "^22.13.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

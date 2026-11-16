@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* SEG Academy Brand Identity Tokens */
+    --seg-plum-deep: 284 45% 20%;        /* #471c4c Deep Plum */
+    --seg-plum-hover: 284 45% 26%;
+    --seg-plum-subtle: 284 30% 95%;
+
+    --seg-orange-academy: 21 90% 54%;    /* #f26522 Academy Orange */
+    --seg-orange-hover: 21 90% 46%;
+    --seg-orange-subtle: 21 80% 96%;
+
+    --seg-yellow-golden: 43 96% 52%;     /* #fbb019 Golden Yellow */
+    --seg-yellow-hover: 43 96% 45%;
+    --seg-yellow-subtle: 43 90% 95%;
+
+    /* shadcn/ui Theme Mapping */
+    --background: 0 0% 100%;
+    --foreground: 284 40% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 284 40% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 284 40% 12%;
+
+    /* Primary: Deep Plum */
+    --primary: var(--seg-plum-deep);
+    --primary-foreground: 0 0% 98%;
+
+    /* Secondary: Academy Orange */
+    --secondary: var(--seg-orange-academy);
+    --secondary-foreground: 0 0% 98%;
+
+    /* Accent: Golden Yellow */
+    --accent: var(--seg-yellow-golden);
+    --accent-foreground: 284 40% 12%;
+
+    --muted: 284 15% 94%;
+    --muted-foreground: 284 15% 40%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 284 15% 90%;
+    --input: 284 15% 90%;
+    --ring: var(--seg-plum-deep);
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 284 35% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 284 35% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 284 35% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 284 50% 65%;
+    --primary-foreground: 284 40% 10%;
+
+    --secondary: var(--seg-orange-academy);
+    --secondary-foreground: 0 0% 98%;
+
+    --accent: var(--seg-yellow-golden);
+    --accent-foreground: 284 40% 10%;
+
+    --muted: 284 25% 18%;
+    --muted-foreground: 284 15% 65%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 284 25% 18%;
+    --input: 284 25% 18%;
+    --ring: var(--seg-orange-academy);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
