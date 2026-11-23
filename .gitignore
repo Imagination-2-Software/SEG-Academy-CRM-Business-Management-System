@@ -52,3 +52,6 @@ Thumbs.db
 
 # TypeScript build information
 *.tsbuildinfo
+
+# Local database backups
+*.dump

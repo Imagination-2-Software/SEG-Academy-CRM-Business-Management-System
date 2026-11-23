@@ -1,30 +1,38 @@
-import { Button } from '@/components/ui/button';
+'use client';
 
-export default function Home() {
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
+
+/**
+ * Root Application Entry Route ('/')
+ *
+ * SEG Academy CRM is an internal employee-only administrative portal.
+ * - Authenticated users are automatically directed to '/dashboard'.
+ * - Unauthenticated users are redirected to the Login page ('/login').
+ */
+export default function RootEntryPage() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/login');
+      }
+    }
+  }, [isAuthenticated, isLoading, router]);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 text-center">
-      <div className="max-w-xl space-y-6">
-        <div className="inline-flex items-center gap-2 rounded-full border border-seg-plum/20 bg-seg-plum-subtle px-4 py-1.5 text-xs font-semibold text-seg-plum">
-          <span className="h-2 w-2 rounded-full bg-seg-orange animate-pulse" />
-          SEG Academy CRM &bull; Phase 1 Foundation
-        </div>
-
-        <h1 className="text-4xl font-extrabold tracking-tight text-seg-plum sm:text-5xl">
-          SEG Academy <span className="text-seg-orange">CRM</span>
-        </h1>
-
-        <p className="text-base text-muted-foreground">
-          Modular Monolith enterprise platform foundation initialized with Next.js App Router,
-          NestJS REST API, and Supabase PostgreSQL.
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-seg-plum border-t-transparent" />
+        <p className="text-sm font-medium text-muted-foreground">
+          Checking SEG Academy authentication session...
         </p>
-
-        {/* Brand Token Verification */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-          <Button variant="default">Deep Plum (Primary)</Button>
-          <Button variant="academy">Academy Orange (Accent)</Button>
-          <Button variant="gold">Golden Yellow (Highlight)</Button>
-        </div>
       </div>
-    </main>
+    </div>
   );
 }

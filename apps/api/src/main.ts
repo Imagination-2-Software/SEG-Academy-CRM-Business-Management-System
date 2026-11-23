@@ -1,13 +1,23 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { setupSwagger } from './common/config/swagger.config';
+import { buildCorsOptions } from './common/security/cors.config';
+import { securityHeadersMiddleware } from './common/security/security-headers.middleware';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // Global validation pipe
+  const configService = app.get(ConfigService);
+  const nodeEnv = configService.get<string>('NODE_ENV') || 'development';
+  const isProduction = nodeEnv === 'production';
+
+  // 1. HTTP Security Headers (OWASP Content-Security-Policy, HSTS, Frameguard, etc.)
+  app.use(securityHeadersMiddleware({ isProduction }));
+
+  // 2. Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -16,35 +26,31 @@ async function bootstrap() {
     }),
   );
 
-  // Global API Prefix
+  // 3. Global API Prefix
   app.setGlobalPrefix('api/v1');
 
-  // CORS configuration
-  const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',')
+  // 4. Centralized CORS Configuration
+  const rawCorsOrigin = configService.get<string>('CORS_ORIGIN');
+  const allowedOrigins = rawCorsOrigin
+    ? rawCorsOrigin.split(',').map((s) => s.trim()).filter(Boolean)
     : ['http://localhost:3000'];
 
-  app.enableCors({
-    origin: allowedOrigins,
-    credentials: true,
-  });
+  app.enableCors(buildCorsOptions({ allowedOrigins, isProduction }));
 
-  // Swagger / OpenAPI documentation
-  const config = new DocumentBuilder()
-    .setTitle('SEG Academy CRM API')
-    .setDescription('SEG Academy CRM Modular Monolith REST API Documentation')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
+  // 5. Swagger / OpenAPI documentation integration
+  const swaggerDoc = setupSwagger(app);
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
-  const port = process.env.PORT || 4000;
+  const port = configService.get<number>('PORT') || 4000;
   await app.listen(port);
 
   logger.log(`SEG Academy CRM API is running on: http://localhost:${port}/api/v1`);
-  logger.log(`Swagger OpenAPI Documentation: http://localhost:${port}/api/docs`);
+  logger.log(`Active Environment: ${nodeEnv}`);
+  logger.log(`Allowed CORS Origins: ${allowedOrigins.join(', ')}`);
+  if (swaggerDoc) {
+    logger.log(`Swagger OpenAPI Documentation: http://localhost:${port}/api/docs`);
+  } else {
+    logger.log(`Swagger OpenAPI Documentation is disabled in this environment.`);
+  }
 }
 
 bootstrap();

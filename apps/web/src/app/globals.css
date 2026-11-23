@@ -52,6 +52,12 @@
     --radius: 0.5rem;
   }
 
+  /* Utility for financial tabular digits */
+  .font-tabular {
+    font-feature-settings: 'tnum';
+    font-variant-numeric: tabular-nums;
+  }
+
   .dark {
     --background: 284 35% 8%;
     --foreground: 0 0% 98%;

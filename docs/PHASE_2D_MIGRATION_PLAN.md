@@ -1153,7 +1153,7 @@ BEGIN
       "updatedAt" = CURRENT_TIMESTAMP
   WHERE "id" = p_invoice_id;
 END;
-$;
+$$;
 
 -- Revoke execution from PUBLIC to prevent unauthorized manual balance recalculation
 -- (Trigger functions enforce_payment_immutability and enforce_refund_immutability execute as SECURITY DEFINER owned by postgres)
