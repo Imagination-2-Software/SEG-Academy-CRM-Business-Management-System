@@ -38,6 +38,7 @@ export function ProtectedRoute({
     );
   }
 
+  // Block unauthenticated access
   if (!isAuthenticated) {
     return null;
   }

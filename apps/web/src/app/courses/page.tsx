@@ -55,27 +55,27 @@ export default function CoursesPage() {
 
   return (
     <AppShell requiredPermission="courses:read">
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-7xl mx-auto">
         {/* Header & Quick Action Buttons */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-border/60">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
               Academic Operations
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Manage course offerings, batch capacity scheduling, and student cohort allocations
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/courses/create">
-              <Button className="bg-seg-plum text-white hover:bg-seg-plum-hover">
-                <Plus className="mr-2 h-4 w-4" />
+              <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum/90 shadow-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
                 New Course
               </Button>
             </Link>
             <Link href="/batches/create">
-              <Button className="bg-seg-orange text-white hover:bg-seg-orange-hover">
-                <Plus className="mr-2 h-4 w-4" />
+              <Button size="sm" className="bg-seg-orange text-white hover:bg-seg-orange/90 shadow-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
                 New Batch
               </Button>
             </Link>
@@ -83,12 +83,12 @@ export default function CoursesPage() {
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-2 border-b border-border">
+        <div className="flex items-center gap-2 border-b border-border/70">
           <button
             onClick={() => setActiveTab('courses')}
-            className={`pb-3 text-sm font-semibold transition-colors border-b-2 px-3 ${
+            className={`pb-2.5 text-xs font-semibold transition-colors border-b-2 px-3 ${
               activeTab === 'courses'
-                ? 'border-seg-plum text-seg-plum dark:border-white dark:text-white'
+                ? 'border-seg-plum text-seg-plum font-bold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -96,9 +96,9 @@ export default function CoursesPage() {
           </button>
           <button
             onClick={() => setActiveTab('batches')}
-            className={`pb-3 text-sm font-semibold transition-colors border-b-2 px-3 ${
+            className={`pb-2.5 text-xs font-semibold transition-colors border-b-2 px-3 ${
               activeTab === 'batches'
-                ? 'border-seg-orange text-seg-orange'
+                ? 'border-seg-orange text-seg-orange font-bold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >

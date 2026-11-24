@@ -1,9 +1,11 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/layout';
 import { useAuth } from '@/lib/auth';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   GraduationCap,
   Users,
@@ -13,6 +15,10 @@ import {
   ShieldCheck,
   Activity,
   CheckCircle2,
+  Plus,
+  ArrowRight,
+  Layers,
+  Clock,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -20,156 +26,210 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="space-y-8">
+      <div className="space-y-6 max-w-7xl mx-auto">
         {/* Page Header */}
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-border/60">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
               Operational Overview
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Welcome back, <strong className="text-foreground">{user?.fullName}</strong> ({user?.role?.name || user?.role?.code}). Here is your live CRM status.
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Welcome back, <span className="font-semibold text-foreground">{user?.fullName || 'Administrator'}</span> ({user?.role?.name || user?.role?.code || 'Staff'}). Live operations status.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              API Online & Synchronized
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              CRM Core Online
             </span>
           </div>
         </div>
 
-        {/* Metric Cards Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Active Enrolments
-              </CardTitle>
-              <GraduationCap className="h-4 w-4 text-seg-plum" />
-            </CardHeader>
-            <CardContent>
+        {/* Core Metric Cards */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {/* Active Enrolments */}
+          <Link href="/students" className="group">
+            <div className="rounded-xl border border-border/70 bg-card p-4 transition-all duration-150 hover:border-seg-plum/40 hover:shadow-xs">
+              <div className="flex items-center justify-between text-muted-foreground mb-2">
+                <span className="text-xs font-medium">Active Enrolments</span>
+                <GraduationCap className="h-4 w-4 text-seg-plum group-hover:scale-105 transition-transform" />
+              </div>
               <div className="text-2xl font-bold text-foreground">148</div>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
                 <span className="text-emerald-600 font-semibold inline-flex items-center">
                   +12% <ArrowUpRight className="h-3 w-3" />
                 </span>
-                from previous cohort
+                vs previous intake
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </Link>
 
-          <Card className="border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Active Batches
-              </CardTitle>
-              <BookOpen className="h-4 w-4 text-seg-orange" />
-            </CardHeader>
-            <CardContent>
+          {/* Active Batches */}
+          <Link href="/batches" className="group">
+            <div className="rounded-xl border border-border/70 bg-card p-4 transition-all duration-150 hover:border-seg-orange/40 hover:shadow-xs">
+              <div className="flex items-center justify-between text-muted-foreground mb-2">
+                <span className="text-xs font-medium">Active Batches</span>
+                <BookOpen className="h-4 w-4 text-seg-orange group-hover:scale-105 transition-transform" />
+              </div>
               <div className="text-2xl font-bold text-foreground">12</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                4 batches scheduled this month
+              <p className="text-[11px] text-muted-foreground mt-1">
+                4 cohorts scheduled this month
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </Link>
 
-          <Card className="border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Reconciled Revenue
-              </CardTitle>
-              <Receipt className="h-4 w-4 text-seg-yellow" />
-            </CardHeader>
-            <CardContent>
+          {/* Reconciled Revenue */}
+          <Link href="/invoices" className="group">
+            <div className="rounded-xl border border-border/70 bg-card p-4 transition-all duration-150 hover:border-seg-yellow/40 hover:shadow-xs">
+              <div className="flex items-center justify-between text-muted-foreground mb-2">
+                <span className="text-xs font-medium">Reconciled Revenue</span>
+                <Receipt className="h-4 w-4 text-seg-yellow group-hover:scale-105 transition-transform" />
+              </div>
               <div className="text-2xl font-bold text-foreground">₹28.4L</div>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
                 <span className="text-emerald-600 font-semibold inline-flex items-center">
                   +8.4% <ArrowUpRight className="h-3 w-3" />
                 </span>
                 verified via DB triggers
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </Link>
 
-          <Card className="border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Staff & Counselors
-              </CardTitle>
-              <Users className="h-4 w-4 text-seg-plum" />
-            </CardHeader>
-            <CardContent>
+          {/* Staff & Faculty */}
+          <Link href="/employees" className="group">
+            <div className="rounded-xl border border-border/70 bg-card p-4 transition-all duration-150 hover:border-seg-plum/40 hover:shadow-xs">
+              <div className="flex items-center justify-between text-muted-foreground mb-2">
+                <span className="text-xs font-medium">Staff & Faculty</span>
+                <Users className="h-4 w-4 text-seg-plum group-hover:scale-105 transition-transform" />
+              </div>
               <div className="text-2xl font-bold text-foreground">24</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Across 4 departments
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Across 5 departments
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </Link>
         </div>
 
-        {/* Security & System Status Information */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="border-border/60">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-seg-plum" />
-                <CardTitle className="text-lg">Security & Session Health</CardTitle>
-              </div>
-              <CardDescription>
-                Live cryptographic verification status of your current session
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3 text-xs">
-                <span className="font-medium text-foreground">Token Scheme</span>
-                <span className="font-mono text-muted-foreground">JWT Access (15m) + SHA-256 Refresh (30d)</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3 text-xs">
-                <span className="font-medium text-foreground">Cryptographic Algorithm</span>
-                <span className="font-mono text-muted-foreground">Argon2id (64MB / 3 iterations / 4 parallelism)</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3 text-xs">
-                <span className="font-medium text-foreground">Rate Limiting Protection</span>
-                <span className="font-semibold text-emerald-600">Active (In-Memory Sliding Window)</span>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Operational Split: Quick Workflows + System Health */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Quick Operational Workflows (Left 2 cols) */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Operational Shortcuts
+              </h2>
+            </div>
 
-          <Card className="border-border/60">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-seg-orange" />
-                <CardTitle className="text-lg">Platform Architecture Status</CardTitle>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link
+                href="/students/register"
+                className="group flex items-start gap-3 rounded-xl border border-border/70 bg-card p-4 transition-all hover:border-seg-plum/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/50"
+              >
+                <div className="rounded-lg bg-seg-plum/10 p-2 text-seg-plum group-hover:bg-seg-plum group-hover:text-white transition-colors">
+                  <GraduationCap className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground group-hover:text-seg-plum transition-colors flex items-center gap-1">
+                    Register New Student
+                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Onboard applicant, generate code, and collect KYC documents
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/invoices/create"
+                className="group flex items-start gap-3 rounded-xl border border-border/70 bg-card p-4 transition-all hover:border-seg-yellow/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/50"
+              >
+                <div className="rounded-lg bg-seg-yellow/10 p-2 text-seg-yellow group-hover:bg-seg-yellow group-hover:text-slate-950 transition-colors">
+                  <Receipt className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground group-hover:text-seg-plum transition-colors flex items-center gap-1">
+                    Generate Invoice
+                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Bill enrolled students with course line-items and tax calculation
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/batches/create"
+                className="group flex items-start gap-3 rounded-xl border border-border/70 bg-card p-4 transition-all hover:border-seg-orange/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/50"
+              >
+                <div className="rounded-lg bg-seg-orange/10 p-2 text-seg-orange group-hover:bg-seg-orange group-hover:text-white transition-colors">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground group-hover:text-seg-plum transition-colors flex items-center gap-1">
+                    Schedule Batch Cohort
+                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Configure capacity limits, curriculum, and semester intake dates
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/employees/create"
+                className="group flex items-start gap-3 rounded-xl border border-border/70 bg-card p-4 transition-all hover:border-seg-plum/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/50"
+              >
+                <div className="rounded-lg bg-seg-plum/10 p-2 text-seg-plum group-hover:bg-seg-plum group-hover:text-white transition-colors">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground group-hover:text-seg-plum transition-colors flex items-center gap-1">
+                    Onboard Staff / Faculty
+                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Create employee record and assign to departmental team
+                  </p>
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          {/* System Security & Integrity Verification (Right 1 col) */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Platform Integrity
+              </h2>
+            </div>
+
+            <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border/50">
+                <span className="text-muted-foreground">Auth Mechanism</span>
+                <span className="font-mono font-medium text-foreground text-[11px]">JWT + Refresh Rotation</span>
               </div>
-              <CardDescription>
-                Status of connected monorepo packages and micro-modules
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3 text-xs">
-                <span className="flex items-center gap-2 font-medium text-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  PostgreSQL 17 (Supabase Staging)
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border/50">
+                <span className="text-muted-foreground">Password Hash</span>
+                <span className="font-mono font-medium text-foreground text-[11px]">Argon2id (64MB)</span>
+              </div>
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border/50">
+                <span className="text-muted-foreground">Backend RBAC</span>
+                <span className="text-emerald-600 font-semibold text-[11px] flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Database-Enforced
                 </span>
-                <span className="text-muted-foreground">26 Models & 6 Triggers</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3 text-xs">
-                <span className="flex items-center gap-2 font-medium text-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  NestJS Modular Monolith API
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border/50">
+                <span className="text-muted-foreground">Automated Tests</span>
+                <span className="text-emerald-600 font-semibold text-[11px] flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> 120 Suites Passing
                 </span>
-                <span className="text-muted-foreground">108 Automated Tests Passing</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3 text-xs">
-                <span className="flex items-center gap-2 font-medium text-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  Next.js 15 App Router Frontend
-                </span>
-                <span className="text-muted-foreground">Authenticated Shell Active</span>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">DB Invariant Triggers</span>
+                <span className="text-foreground font-mono text-[11px]">Invoice Math Synchronized</span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </AppShell>

@@ -24,12 +24,15 @@ export function AppShell({
       requiredPermission={requiredPermission}
     >
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-        <Sidebar />
+        <Sidebar
+          isMobileOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
 
         {/* Mobile Sidebar Overlay */}
         {isMobileMenuOpen && (
           <div
-            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs md:hidden transition-opacity"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
