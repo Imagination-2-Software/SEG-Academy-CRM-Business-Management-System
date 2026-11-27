@@ -7,7 +7,8 @@ import { AppShell } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { apiClient, ApiClientError } from '@/lib/api';
+import { studentsService } from '@/lib/api/students';
+import { ApiClientError } from '@/lib/api/client';
 import { ArrowLeft, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function RegisterStudentPage() {
@@ -54,7 +55,7 @@ export default function RegisterStudentPage() {
     setIsLoading(true);
 
     try {
-      const payload: any = {
+      const payload = {
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         phoneNumber: formData.phoneNumber.trim() || undefined,
@@ -73,9 +74,9 @@ export default function RegisterStudentPage() {
         guardianEmail: formData.guardianEmail || undefined,
       };
 
-      const res = await apiClient.post('/students', payload);
-      if (res.success && res.data) {
-        router.push(`/students/${res.data.id}`);
+      const newStudent = await studentsService.registerStudent(payload);
+      if (newStudent && newStudent.id) {
+        router.push(`/students/${newStudent.id}`);
       }
     } catch (err: any) {
       if (err instanceof ApiClientError) {
@@ -133,7 +134,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="fullName"
-                      placeholder="e.g. Aarav Sharma"
+                      placeholder="XYZ"
                       value={formData.fullName}
                       onChange={handleChange}
                       required
@@ -147,7 +148,7 @@ export default function RegisterStudentPage() {
                     <Input
                       name="email"
                       type="email"
-                      placeholder="aarav.sharma@example.com"
+                      placeholder="xyz@example.com"
                       value={formData.email}
                       onChange={handleChange}
                       required
@@ -160,7 +161,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="phoneNumber"
-                      placeholder="+91 98765 43210"
+                      placeholder="123"
                       value={formData.phoneNumber}
                       onChange={handleChange}
                     />
@@ -196,7 +197,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="nationality"
-                      placeholder="Indian"
+                      placeholder="XYZ"
                       value={formData.nationality}
                       onChange={handleChange}
                     />
@@ -216,7 +217,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="addressLine1"
-                      placeholder="Building, street, or flat number"
+                      placeholder="XYZ"
                       value={formData.addressLine1}
                       onChange={handleChange}
                     />
@@ -228,7 +229,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="addressLine2"
-                      placeholder="Landmark or locality"
+                      placeholder="XYZ"
                       value={formData.addressLine2}
                       onChange={handleChange}
                     />
@@ -240,7 +241,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="city"
-                      placeholder="e.g. Mumbai"
+                      placeholder="XYZ"
                       value={formData.city}
                       onChange={handleChange}
                     />
@@ -252,7 +253,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="state"
-                      placeholder="e.g. Maharashtra"
+                      placeholder="XYZ"
                       value={formData.state}
                       onChange={handleChange}
                     />
@@ -264,7 +265,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="country"
-                      placeholder="India"
+                      placeholder="XYZ"
                       value={formData.country}
                       onChange={handleChange}
                     />
@@ -276,7 +277,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="postalCode"
-                      placeholder="400001"
+                      placeholder="123"
                       value={formData.postalCode}
                       onChange={handleChange}
                     />
@@ -296,7 +297,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="guardianName"
-                      placeholder="Parent or guardian name"
+                      placeholder="XYZ"
                       value={formData.guardianName}
                       onChange={handleChange}
                     />
@@ -308,7 +309,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="guardianPhone"
-                      placeholder="+91 98765 43212"
+                      placeholder="123"
                       value={formData.guardianPhone}
                       onChange={handleChange}
                     />
@@ -321,7 +322,7 @@ export default function RegisterStudentPage() {
                     <Input
                       name="guardianEmail"
                       type="email"
-                      placeholder="guardian@example.com"
+                      placeholder="xyz@example.com"
                       value={formData.guardianEmail}
                       onChange={handleChange}
                     />
@@ -333,7 +334,7 @@ export default function RegisterStudentPage() {
                     </label>
                     <Input
                       name="emergencyContact"
-                      placeholder="+91 98765 43211"
+                      placeholder="123"
                       value={formData.emergencyContact}
                       onChange={handleChange}
                     />

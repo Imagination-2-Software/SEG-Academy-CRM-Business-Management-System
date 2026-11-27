@@ -35,11 +35,16 @@ export interface SafeUser {
     name: string;
     description: string | null;
     isSystem: boolean;
+    permissions?: string[];
   };
   employee?: {
     id: string;
     employeeCode: string;
     jobTitle: string;
+    employmentType?: string;
+    department?: { id: string; name: string; code: string } | null;
+    team?: { id: string; name: string; code: string } | null;
+    joinDate?: Date;
   } | null;
 }
 
@@ -133,7 +138,7 @@ export class UsersService {
   }
 
   /**
-   * Retrieves user details by ID.
+   * Retrieves user details by ID with assigned permissions and linked employee/department/team metadata.
    */
   async getUserById(id: string): Promise<SafeUser> {
     const user = await this.prisma.user.findUnique({
@@ -146,6 +151,9 @@ export class UsersService {
             name: true,
             description: true,
             isSystem: true,
+            permissions: {
+              include: { permission: true },
+            },
           },
         },
         employee: {
@@ -153,6 +161,14 @@ export class UsersService {
             id: true,
             employeeCode: true,
             jobTitle: true,
+            employmentType: true,
+            joinDate: true,
+            department: {
+              select: { id: true, name: true, code: true },
+            },
+            team: {
+              select: { id: true, name: true, code: true },
+            },
           },
         },
       },
@@ -162,7 +178,34 @@ export class UsersService {
       throw new NotFoundException(`User with ID "${id}" was not found.`);
     }
 
-    return this.toSafeUser(user);
+    const permissions = user.role.permissions
+      ? user.role.permissions.map(
+          (rp: any) => `${rp.permission.resource}:${rp.permission.action}`,
+        )
+      : [];
+
+    return {
+      ...this.toSafeUser(user),
+      role: {
+        id: user.role.id,
+        code: user.role.code,
+        name: user.role.name,
+        description: user.role.description,
+        isSystem: user.role.isSystem,
+        permissions,
+      },
+      employee: user.employee
+        ? {
+            id: user.employee.id,
+            employeeCode: user.employee.employeeCode,
+            jobTitle: user.employee.jobTitle,
+            employmentType: user.employee.employmentType,
+            department: user.employee.department,
+            team: user.employee.team,
+            joinDate: user.employee.joinDate,
+          }
+        : null,
+    };
   }
 
   /**

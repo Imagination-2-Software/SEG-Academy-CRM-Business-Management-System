@@ -91,37 +91,37 @@ export function RecordPaymentModal({
       id: 'UPI',
       label: 'UPI / QR',
       icon: Smartphone,
-      hint: 'e.g. UPI/632194829101/YESB or VPA',
+      hint: 'XYZ',
     },
     {
       id: 'BANK_TRANSFER',
       label: 'NEFT / RTGS / IMPS',
       icon: Building,
-      hint: 'e.g. Bank UTR / Reference No.',
+      hint: '123',
     },
     {
       id: 'CREDIT_CARD',
       label: 'Credit Card',
       icon: CreditCard,
-      hint: 'e.g. POS Auth / Gateway Ref',
+      hint: 'XYZ',
     },
     {
       id: 'DEBIT_CARD',
       label: 'Debit Card',
       icon: CreditCard,
-      hint: 'e.g. POS Auth / Gateway Ref',
+      hint: 'XYZ',
     },
     {
       id: 'CASH',
       label: 'Cash',
       icon: Banknote,
-      hint: 'e.g. Cash Receipt # or Handover Staff',
+      hint: '123',
     },
     {
       id: 'ONLINE_GATEWAY',
       label: 'Razorpay / Gateway',
       icon: Globe,
-      hint: 'e.g. pay_Nabc1234XYZ',
+      hint: 'XYZ',
     },
   ];
 
@@ -285,7 +285,7 @@ export function RecordPaymentModal({
             </label>
             <Input
               type="text"
-              placeholder="e.g. Paid via HDFC account by student guardian"
+              placeholder="Sample text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="text-sm"

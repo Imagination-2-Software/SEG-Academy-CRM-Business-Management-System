@@ -22,16 +22,62 @@ describe('AuthService Rotation & Revocation Unit Tests', () => {
   // In-memory mock database state
   let mockUsers: any[] = [];
   let mockTokens: any[] = [];
+  let mockRoles: any[] = [
+    {
+      id: 'role-founder',
+      code: 'FOUNDER_SUPER_ADMIN',
+      name: 'Founder / Super Admin',
+      description: 'Super Admin',
+      isSystem: true,
+    },
+  ];
+
+  const mockAuditService = {
+    log: async () => {},
+  };
 
   const mockPrisma = {
     user: {
       findUnique: async ({ where }: any) => {
-        return mockUsers.find((u) => u.email === where.email) || null;
+        if (where.id) return mockUsers.find((u) => u.id === where.id) || null;
+        if (where.email) return mockUsers.find((u) => u.email === where.email) || null;
+        return null;
+      },
+      count: async (params?: any) => {
+        const where = params?.where;
+        if (!where) return mockUsers.length;
+        if (where.roleId) return mockUsers.filter((u) => u.roleId === where.roleId).length;
+        return mockUsers.length;
+      },
+      create: async ({ data }: any) => {
+        const role = mockRoles.find((r) => r.id === data.roleId) || {
+          id: data.roleId,
+          code: 'FOUNDER_SUPER_ADMIN',
+          name: 'Founder',
+        };
+        const user = {
+          id: `usr-${mockUsers.length + 1}`,
+          ...data,
+          role,
+          employee: null,
+        };
+        mockUsers.push(user);
+        return user;
       },
       update: async ({ where, data }: any) => {
         const user = mockUsers.find((u) => u.id === where.id);
         if (user) Object.assign(user, data);
         return user;
+      },
+    },
+    role: {
+      findUnique: async ({ where }: any) => {
+        return mockRoles.find((r) => r.code === where.code || r.id === where.id) || null;
+      },
+      create: async ({ data }: any) => {
+        const role = { id: `role-${mockRoles.length + 1}`, ...data };
+        mockRoles.push(role);
+        return role;
       },
     },
     refreshToken: {
@@ -66,9 +112,20 @@ describe('AuthService Rotation & Revocation Unit Tests', () => {
         return { count };
       },
     },
+    $transaction: async (fn: any) => {
+      if (typeof fn === 'function') {
+        return fn(mockPrisma);
+      }
+      return Promise.all(fn);
+    },
   } as unknown as PrismaService;
 
-  const authService = new AuthService(mockPrisma, passwordService, tokenService);
+  const authService = new AuthService(
+    mockPrisma,
+    passwordService,
+    tokenService,
+    mockAuditService as any,
+  );
 
   it('should authenticate valid credentials and issue tokens', async () => {
     const rawPassword = 'CorrectPassword123!';
@@ -190,5 +247,139 @@ describe('AuthService Rotation & Revocation Unit Tests', () => {
 
     const storedToken = mockTokens.find((t) => t.tokenHash === tokenHash);
     assert.equal(storedToken.isRevoked, true, 'Logout must revoke token');
+  });
+
+  describe('One-Time Founder / Super Admin Setup', () => {
+    it('should report uninitialized setup status when no founder exists', async () => {
+      mockUsers = [];
+      const status = await authService.getSetupStatus();
+      assert.equal(status.initialized, false);
+      assert.match(status.message, /First-time Founder setup/i);
+    });
+
+    it('should successfully setup initial Founder account with Argon2id hash and tokens', async () => {
+      mockUsers = [];
+      const setupRes = await authService.setupFounder({
+        fullName: 'Dr. Sarah Jenkins',
+        email: 'founder@segacademy.com',
+        password: 'SecureFounderPass123!',
+      });
+
+      assert.ok(setupRes.user);
+      assert.equal(setupRes.user.email, 'founder@segacademy.com');
+      assert.equal(setupRes.user.fullName, 'Dr. Sarah Jenkins');
+      assert.equal(setupRes.user.role.code, 'FOUNDER_SUPER_ADMIN');
+      assert.ok(setupRes.tokens.accessToken);
+      assert.ok(setupRes.tokens.refreshToken);
+
+      // Verify password was hashed using Argon2id
+      const savedUser = mockUsers.find((u) => u.email === 'founder@segacademy.com');
+      assert.ok(savedUser);
+      assert.match(savedUser.passwordHash, /^\$argon2id\$/);
+
+      // Verify status now reports initialized
+      const status = await authService.getSetupStatus();
+      assert.equal(status.initialized, true);
+    });
+
+    it('SECURITY: should strictly block subsequent attempts to create Founder account', async () => {
+      await assert.rejects(
+        async () =>
+          authService.setupFounder({
+            fullName: 'Intruder Impersonator',
+            email: 'intruder@segacademy.com',
+            password: 'IntruderPass123!',
+          }),
+        (err: any) =>
+          err instanceof ForbiddenException &&
+          err.message.includes('System initialization completed'),
+      );
+    });
+  });
+
+  describe('Authenticated Password Change', () => {
+    it('should successfully change password when current password matches', async () => {
+      const initialPassword = 'InitialSecret123!';
+      const newPassword = 'BrandNewSecret456!';
+      const hashedInitial = await passwordService.hashPassword(initialPassword);
+
+      const testUser = {
+        id: 'usr-pwd-test-1',
+        email: 'pwdchange@segacademy.com',
+        fullName: 'Password Change User',
+        passwordHash: hashedInitial,
+        status: 'ACTIVE',
+        role: { id: 'role-founder', code: 'FOUNDER_SUPER_ADMIN', name: 'Founder' },
+      };
+      mockUsers.push(testUser);
+
+      // Active refresh token session
+      const currentToken = 'mock-refresh-token-val';
+      const tokenHash = passwordService.hashToken(currentToken);
+      mockTokens.push({
+        id: 'token-active-1',
+        userId: testUser.id,
+        tokenHash,
+        isRevoked: false,
+      });
+
+      const res = await authService.changePassword(
+        testUser.id,
+        initialPassword,
+        newPassword,
+        { currentRefreshToken: currentToken },
+      );
+
+      assert.equal(res.success, true);
+      assert.match(res.message, /Password changed successfully/i);
+
+      // Verify new password is valid with Argon2id and old password fails
+      const updatedUser = mockUsers.find((u) => u.id === testUser.id);
+      const isNewValid = await passwordService.verifyPassword(updatedUser.passwordHash, newPassword);
+      assert.equal(isNewValid, true);
+
+      const isOldValid = await passwordService.verifyPassword(updatedUser.passwordHash, initialPassword);
+      assert.equal(isOldValid, false);
+    });
+
+    it('should reject password change when current password is incorrect', async () => {
+      const testUser = mockUsers.find((u) => u.id === 'usr-pwd-test-1');
+      assert.ok(testUser);
+
+      await assert.rejects(
+        async () =>
+          authService.changePassword(
+            testUser.id,
+            'WrongCurrentPass123!',
+            'ShouldNeverSetThis!',
+          ),
+        (err: any) =>
+          err instanceof UnauthorizedException &&
+          err.message.includes('Current password does not match'),
+      );
+    });
+
+    it('should reject password change if user account is not active', async () => {
+      const inactiveUser = {
+        id: 'usr-inactive-pwd-1',
+        email: 'inactive@segacademy.com',
+        fullName: 'Inactive User',
+        passwordHash: await passwordService.hashPassword('OldPass123!'),
+        status: 'SUSPENDED',
+      };
+      mockUsers.push(inactiveUser);
+
+      await assert.rejects(
+        async () =>
+          authService.changePassword(
+            inactiveUser.id,
+            'OldPass123!',
+            'NewPassword123!',
+          ),
+        (err: any) =>
+          err instanceof UnauthorizedException &&
+          err.message.includes('Account is not active'),
+      );
+    });
   });
 });

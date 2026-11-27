@@ -71,9 +71,15 @@ class ApiClient {
   private getHeaders(requiresAuth = true, customHeaders: HeadersInit = {}): Headers {
     const headers = new Headers(customHeaders);
 
-    if (!headers.has('Content-Type')) {
+    // If body is FormData, browser must set Content-Type with boundary automatically
+    if (customHeaders instanceof Headers && customHeaders.has('Content-Type') && customHeaders.get('Content-Type') === 'multipart/form-data') {
+      headers.delete('Content-Type');
+    } else if (typeof customHeaders === 'object' && !(customHeaders instanceof Headers) && (customHeaders as any)['Content-Type'] === 'multipart/form-data') {
+      headers.delete('Content-Type');
+    } else if (!headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }
+
     if (!headers.has('Accept')) {
       headers.set('Accept', 'application/json');
     }
@@ -194,10 +200,14 @@ class ApiClient {
   }
 
   post<T = any>(path: string, body?: any, options?: RequestOptions) {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     return this.request<T>(path, {
       ...options,
       method: 'POST',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
+      headers: isFormData
+        ? { ...(options?.headers || {}), 'Content-Type': 'multipart/form-data' }
+        : options?.headers,
     });
   }
 

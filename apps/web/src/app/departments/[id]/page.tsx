@@ -59,7 +59,7 @@ export default function DepartmentDetailsPage() {
 
   if (isLoading) {
     return (
-      <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}>
+      <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']} requiredPermission="users:read">
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-seg-plum border-t-transparent" />
           <p className="text-xs font-medium text-muted-foreground">
@@ -72,7 +72,7 @@ export default function DepartmentDetailsPage() {
 
   if (!department) {
     return (
-      <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}>
+      <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']} requiredPermission="users:read">
         <div className="mx-auto max-w-xl p-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400">
             <AlertCircle className="h-6 w-6" />
@@ -97,7 +97,7 @@ export default function DepartmentDetailsPage() {
   }
 
   return (
-    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}>
+    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']} requiredPermission="users:read">
       <div className="space-y-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">

@@ -71,7 +71,8 @@ export default function CreateDepartmentPage() {
 
   return (
     <AppShell
-      allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}
+      allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']}
+      requiredPermission="users:create"
     >
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Breadcrumb */}

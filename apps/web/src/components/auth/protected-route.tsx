@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
@@ -15,17 +15,22 @@ export function ProtectedRoute({
   allowedRoles,
   requiredPermission,
 }: ProtectedRouteProps) {
+  const [mounted, setMounted] = useState(false);
   const { user, isAuthenticated, isLoading, hasRole, hasPermission } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isLoading && !isAuthenticated) {
       router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [isLoading, isAuthenticated, router, pathname]);
+  }, [mounted, isLoading, isAuthenticated, router, pathname]);
 
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">

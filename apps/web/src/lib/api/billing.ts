@@ -1,4 +1,4 @@
-import { apiClient, tokenStorage } from './client';
+import { apiClient } from './client';
 
 export type InvoiceStatus =
   | 'DRAFT'
@@ -211,7 +211,6 @@ export function isPastDue(dueDateStr: string, status: InvoiceStatus): boolean {
   }
   const dueDate = new Date(dueDateStr);
   const now = new Date();
-  // Strip hours
   dueDate.setHours(23, 59, 59, 999);
   return now > dueDate;
 }
@@ -291,296 +290,20 @@ export function getPaymentMethodLabel(method: PaymentMethod): string {
 }
 
 // ---------------------------------------------------------------------------
-// Realistic Seed Data (SEG Academy CRM Baseline)
-// ---------------------------------------------------------------------------
-
-const SEED_INVOICES: Invoice[] = [
-  {
-    id: 'inv-uuid-001',
-    invoiceNumber: 'INV-2026-0041',
-    studentId: 'stu-uuid-1',
-    enrolmentId: 'enr-uuid-1',
-    issueDate: '2026-11-01',
-    dueDate: '2026-11-15',
-    subtotal: 55000,
-    taxAmount: 9900,
-    discountAmount: 5000,
-    totalAmount: 59900,
-    paidAmount: 59900,
-    currency: 'INR',
-    status: 'PAID',
-    version: 2,
-    isFinalized: true,
-    notes: 'Semester 1 comprehensive tuition fee for Full Stack AI Development.',
-    createdAt: '2026-11-01T10:00:00Z',
-    updatedAt: '2026-11-05T14:30:00Z',
-    student: {
-      id: 'stu-uuid-1',
-      studentCode: 'SEG-26-0001',
-      fullName: 'Aarav Sharma',
-      email: 'aarav.sharma@example.com',
-      phoneNumber: '+91 98765 43210',
-      address: 'Flat 402, Highrise Residency, Andheri East, Mumbai, Maharashtra 400069',
-    },
-    batch: {
-      id: 'batch-uuid-1',
-      name: 'Batch Alpha 2026',
-      code: 'FSAD-2026-B1',
-      course: {
-        id: 'crs-uuid-1',
-        name: 'Full Stack AI & Cloud Engineering',
-        code: 'FSAD-101',
-      },
-    },
-    items: [
-      {
-        id: 'item-1',
-        description: 'Tuition Fee - Full Stack AI & Cloud Engineering (Term 1)',
-        quantity: 1,
-        unitPrice: 50000,
-        amount: 50000,
-      },
-      {
-        id: 'item-2',
-        description: 'Lab & Cloud Infrastructure Access Pass (Annual)',
-        quantity: 1,
-        unitPrice: 5000,
-        amount: 5000,
-      },
-    ],
-    payments: [
-      {
-        id: 'pay-uuid-001',
-        paymentNumber: 'PAY-2026-0081',
-        invoiceId: 'inv-uuid-001',
-        studentId: 'stu-uuid-1',
-        amount: 59900,
-        currency: 'INR',
-        method: 'UPI',
-        status: 'CONFIRMED',
-        transactionReference: 'UPI/632194829101/YESB',
-        idempotencyKey: 'idemp-pay-001',
-        gatewayProvider: 'RAZORPAY',
-        paidAt: '2026-11-05T14:30:00Z',
-        createdAt: '2026-11-05T14:30:00Z',
-      },
-    ],
-  },
-  {
-    id: 'inv-uuid-002',
-    invoiceNumber: 'INV-2026-0042',
-    studentId: 'stu-uuid-2',
-    enrolmentId: 'enr-uuid-2',
-    issueDate: '2026-11-10',
-    dueDate: '2026-11-25',
-    subtotal: 45000,
-    taxAmount: 8100,
-    discountAmount: 0,
-    totalAmount: 53100,
-    paidAmount: 25000,
-    currency: 'INR',
-    status: 'PARTIALLY_PAID',
-    version: 2,
-    isFinalized: true,
-    notes: 'Two-installment plan approved by Admissions.',
-    createdAt: '2026-11-10T09:15:00Z',
-    updatedAt: '2026-11-12T11:20:00Z',
-    student: {
-      id: 'stu-uuid-2',
-      studentCode: 'SEG-26-0002',
-      fullName: 'Priya Patel',
-      email: 'priya.patel@example.com',
-      phoneNumber: '+91 91234 56789',
-      address: 'B-12 Nilgiri Heights, Vastrapur, Ahmedabad, Gujarat 380015',
-    },
-    batch: {
-      id: 'batch-uuid-2',
-      name: 'Data Science Evening Cohort',
-      code: 'DS-2026-E1',
-      course: {
-        id: 'crs-uuid-2',
-        name: 'Applied Data Science & Machine Learning',
-        code: 'DS-201',
-      },
-    },
-    items: [
-      {
-        id: 'item-3',
-        description: 'Applied Data Science & Machine Learning Program Fee',
-        quantity: 1,
-        unitPrice: 45000,
-        amount: 45000,
-      },
-    ],
-    payments: [
-      {
-        id: 'pay-uuid-002',
-        paymentNumber: 'PAY-2026-0082',
-        invoiceId: 'inv-uuid-002',
-        studentId: 'stu-uuid-2',
-        amount: 25000,
-        currency: 'INR',
-        method: 'BANK_TRANSFER',
-        status: 'CONFIRMED',
-        transactionReference: 'NEFT/HDFC0001234/98712391',
-        idempotencyKey: 'idemp-pay-002',
-        gatewayProvider: 'BANK_NEFT',
-        paidAt: '2026-11-12T11:20:00Z',
-        createdAt: '2026-11-12T11:20:00Z',
-      },
-    ],
-  },
-  {
-    id: 'inv-uuid-003',
-    invoiceNumber: 'INV-2026-0043',
-    studentId: 'stu-uuid-3',
-    enrolmentId: 'enr-uuid-3',
-    issueDate: '2026-11-05',
-    dueDate: '2026-11-18', // Past due!
-    subtotal: 60000,
-    taxAmount: 10800,
-    discountAmount: 3000,
-    totalAmount: 67800,
-    paidAmount: 0,
-    currency: 'INR',
-    status: 'ISSUED',
-    version: 1,
-    isFinalized: true,
-    notes: 'Payment overdue. Second reminder dispatched via email.',
-    createdAt: '2026-11-05T11:00:00Z',
-    updatedAt: '2026-11-05T11:00:00Z',
-    student: {
-      id: 'stu-uuid-3',
-      studentCode: 'SEG-26-0003',
-      fullName: 'Rohan Mehta',
-      email: 'rohan.mehta@example.com',
-      phoneNumber: '+91 99887 76655',
-      address: '74 Park View Apartments, Koramangala, Bengaluru, Karnataka 560034',
-    },
-    batch: {
-      id: 'batch-uuid-1',
-      name: 'Batch Alpha 2026',
-      code: 'FSAD-2026-B1',
-      course: {
-        id: 'crs-uuid-1',
-        name: 'Full Stack AI & Cloud Engineering',
-        code: 'FSAD-101',
-      },
-    },
-    items: [
-      {
-        id: 'item-4',
-        description: 'Complete Course Tuition Fee',
-        quantity: 1,
-        unitPrice: 60000,
-        amount: 60000,
-      },
-    ],
-    payments: [],
-  },
-  {
-    id: 'inv-uuid-004',
-    invoiceNumber: 'INV-2026-0044',
-    studentId: 'stu-uuid-4',
-    issueDate: '2026-11-20',
-    dueDate: '2026-12-05',
-    subtotal: 35000,
-    taxAmount: 6300,
-    discountAmount: 0,
-    totalAmount: 41300,
-    paidAmount: 0,
-    currency: 'INR',
-    status: 'ISSUED',
-    version: 1,
-    isFinalized: true,
-    notes: 'Registration fee for Cyber Security & DevSecOps Bootcamp.',
-    createdAt: '2026-11-20T14:00:00Z',
-    updatedAt: '2026-11-20T14:00:00Z',
-    student: {
-      id: 'stu-uuid-4',
-      studentCode: 'SEG-26-0004',
-      fullName: 'Neha Gupta',
-      email: 'neha.gupta@example.com',
-      phoneNumber: '+91 97654 32109',
-      address: 'Block C-9, Sector 62, Noida, Uttar Pradesh 201309',
-    },
-    items: [
-      {
-        id: 'item-5',
-        description: 'Cyber Security & DevSecOps Immersion',
-        quantity: 1,
-        unitPrice: 35000,
-        amount: 35000,
-      },
-    ],
-    payments: [],
-  },
-  {
-    id: 'inv-uuid-005',
-    invoiceNumber: 'INV-2026-0045',
-    studentId: 'stu-uuid-5',
-    issueDate: '2026-11-22',
-    dueDate: '2026-12-07',
-    subtotal: 48000,
-    taxAmount: 8640,
-    discountAmount: 2000,
-    totalAmount: 54640,
-    paidAmount: 0,
-    currency: 'INR',
-    status: 'DRAFT',
-    version: 1,
-    isFinalized: false,
-    notes: 'Draft awaiting sponsorship coupon verification.',
-    createdAt: '2026-11-22T16:45:00Z',
-    updatedAt: '2026-11-22T16:45:00Z',
-    student: {
-      id: 'stu-uuid-5',
-      studentCode: 'SEG-26-0005',
-      fullName: 'Vikram Singh',
-      email: 'vikram.singh@example.com',
-      phoneNumber: '+91 98112 23344',
-      address: '15 Civil Lines, Jaipur, Rajasthan 302006',
-    },
-    items: [
-      {
-        id: 'item-6',
-        description: 'Product Design & UI/UX Systems Track',
-        quantity: 1,
-        unitPrice: 48000,
-        amount: 48000,
-      },
-    ],
-    payments: [],
-  },
-];
-
-const LOCAL_STORAGE_INVOICES_KEY = 'seg_crm_invoices_cache_v1';
-const LOCAL_STORAGE_PAYMENTS_KEY = 'seg_crm_payments_cache_v1';
-
-function getStoredInvoices(): Invoice[] {
-  if (typeof window === 'undefined') return SEED_INVOICES;
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_INVOICES_KEY);
-    if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_INVOICES_KEY, JSON.stringify(SEED_INVOICES));
-      return SEED_INVOICES;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return SEED_INVOICES;
-  }
-}
-
-function saveStoredInvoices(invoices: Invoice[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_INVOICES_KEY, JSON.stringify(invoices));
-  } catch {}
-}
-
-// ---------------------------------------------------------------------------
 // Billing Service Methods
 // ---------------------------------------------------------------------------
+
+export interface GetInvoicesResponse {
+  invoices: Invoice[];
+  total: number;
+  metrics: BillingMetrics;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 export const billingService = {
   async getInvoices(params?: {
@@ -589,307 +312,125 @@ export const billingService = {
     studentId?: string;
     page?: number;
     limit?: number;
-  }): Promise<{ invoices: Invoice[]; total: number; metrics: BillingMetrics }> {
-    if (tokenStorage.getAccessToken()) {
-      try {
-        const query = new URLSearchParams();
-        if (params?.search) query.append('search', params.search);
-        if (params?.status && params.status !== 'ALL') query.append('status', params.status);
-        if (params?.studentId) query.append('studentId', params.studentId);
-        if (params?.page) query.append('page', params.page.toString());
-        if (params?.limit) query.append('limit', params.limit.toString());
+  }): Promise<GetInvoicesResponse> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.status && params.status !== 'ALL') query.append('status', params.status);
+    if (params?.studentId) query.append('studentId', params.studentId);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
 
-        const res: any = await apiClient.get(`/invoices?${query.toString()}`);
-        if (res?.success && res?.data) {
-          const list = Array.isArray(res.data) ? res.data : res.data.data || [];
-          const metrics = res.data.metrics || this.computeMetrics(list);
-          return {
-            invoices: list,
-            total: res.meta?.total || list.length,
-            metrics,
-          };
-        }
-      } catch {
-        // Fallback to local high-fidelity state if backend endpoint is not yet live
-      }
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const res: any = await apiClient.get(`/invoices${queryString}`);
+
+    let list: Invoice[] = [];
+    let total = 0;
+    let meta: { page: number; limit: number; total: number; totalPages: number } | undefined = undefined;
+    let metrics: BillingMetrics = {
+      totalInvoiced: 0,
+      totalCollected: 0,
+      totalOutstanding: 0,
+      overdueAmount: 0,
+      overdueCount: 0,
+      paidInvoicesCount: 0,
+      pendingInvoicesCount: 0,
+    };
+
+    if (res?.success && res?.data) {
+      list = Array.isArray(res.data) ? res.data : res.data.data || [];
+      meta = res.meta || res.data?.meta;
+      total = meta?.total ?? (res.meta?.total || list.length);
+      metrics = res.data?.metrics || res.metrics || this.computeMetrics(list);
+    } else if (Array.isArray(res)) {
+      list = res;
+      total = list.length;
+      metrics = this.computeMetrics(list);
     }
-
-    let list = getStoredInvoices();
-
-    if (params?.search) {
-      const q = params.search.toLowerCase();
-      list = list.filter(
-        (inv) =>
-          inv.invoiceNumber.toLowerCase().includes(q) ||
-          inv.student.fullName.toLowerCase().includes(q) ||
-          inv.student.studentCode.toLowerCase().includes(q) ||
-          inv.student.email.toLowerCase().includes(q),
-      );
-    }
-
-    if (params?.status && params.status !== 'ALL') {
-      if (params.status === 'OVERDUE') {
-        list = list.filter((inv) => isPastDue(inv.dueDate, inv.status));
-      } else {
-        list = list.filter((inv) => inv.status === params.status);
-      }
-    }
-
-    if (params?.studentId) {
-      list = list.filter((inv) => inv.studentId === params.studentId);
-    }
-
-    const allInvoices = getStoredInvoices();
-    const metrics = this.computeMetrics(allInvoices);
 
     return {
       invoices: list,
-      total: list.length,
+      total,
       metrics,
+      meta,
     };
   },
 
   async getInvoiceById(id: string): Promise<Invoice | null> {
-    if (tokenStorage.getAccessToken()) {
-      try {
-        const res: any = await apiClient.get(`/invoices/${id}`);
-        if (res?.success && res?.data) {
-          return res.data;
-        }
-      } catch {
-        // Fallback
-      }
+    const res: any = await apiClient.get(`/invoices/${id}`);
+    if (res?.success && res?.data) {
+      return res.data;
     }
-
-    const list = getStoredInvoices();
-    const found = list.find((inv) => inv.id === id || inv.invoiceNumber === id);
-    return found || null;
+    if (res?.data) return res.data;
+    return res || null;
   },
 
   async createInvoice(payload: CreateInvoicePayload): Promise<Invoice> {
-    try {
-      const res: any = await apiClient.post('/invoices', payload);
-      if (res?.success && res?.data) {
-        return res.data;
-      }
-    } catch {
-      // Fallback local creation
+    const res: any = await apiClient.post('/invoices', payload);
+    if (res?.success && res?.data) {
+      return res.data;
     }
+    return res?.data || res;
+  },
 
-    const list = getStoredInvoices();
-    const nextNum = list.length + 42;
-    const invNumber = `INV-2026-00${nextNum}`;
+  async finalizeInvoice(id: string): Promise<Invoice> {
+    const res: any = await apiClient.patch(`/invoices/${id}/finalize`, {});
+    if (res?.success && res?.data) {
+      return res.data;
+    }
+    return res?.data || res;
+  },
 
-    // Look up mock student
-    const student =
-      SEED_INVOICES.find((i) => i.student.id === payload.studentId)?.student || {
-        id: payload.studentId,
-        studentCode: `SEG-26-00${nextNum}`,
-        fullName: 'Enrolled Student',
-        email: 'student@example.com',
-        phoneNumber: '+91 98765 00000',
-        address: 'SEG Academy Main Campus, India',
-      };
-
-    const newInvoice: Invoice = {
-      id: `inv-uuid-${Date.now()}`,
-      invoiceNumber: invNumber,
-      studentId: payload.studentId,
-      enrolmentId: payload.enrolmentId,
-      issueDate: payload.issueDate,
-      dueDate: payload.dueDate,
-      subtotal: payload.subtotal,
-      discountAmount: payload.discountAmount,
-      taxAmount: payload.taxAmount,
-      totalAmount: payload.totalAmount,
-      paidAmount: 0,
-      currency: 'INR',
-      status: payload.isFinalized ? 'ISSUED' : 'DRAFT',
-      version: 1,
-      isFinalized: Boolean(payload.isFinalized),
-      notes: payload.notes,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      student,
-      items: payload.items.map((it, idx) => ({
-        id: `item-${Date.now()}-${idx}`,
-        ...it,
-      })),
-      payments: [],
-    };
-
-    const updated = [newInvoice, ...list];
-    saveStoredInvoices(updated);
-    return newInvoice;
+  async cancelInvoice(id: string): Promise<Invoice> {
+    const res: any = await apiClient.patch(`/invoices/${id}/cancel`, {});
+    if (res?.success && res?.data) {
+      return res.data;
+    }
+    return res?.data || res;
   },
 
   async recordPayment(payload: RecordPaymentPayload): Promise<Payment> {
-    try {
-      const res: any = await apiClient.post(
-        `/invoices/${payload.invoiceId}/payments`,
-        payload,
-      );
-      if (res?.success && res?.data) {
-        return res.data;
-      }
-    } catch {
-      // Fallback
+    const res: any = await apiClient.post(
+      `/invoices/${payload.invoiceId}/payments`,
+      payload,
+    );
+    if (res?.success && res?.data) {
+      return res.data;
     }
-
-    const list = getStoredInvoices();
-    const invoiceIndex = list.findIndex((i) => i.id === payload.invoiceId);
-    if (invoiceIndex === -1) {
-      throw new Error('Invoice not found.');
-    }
-
-    const inv = list[invoiceIndex];
-    const newPaidAmount = Number(inv.paidAmount) + Number(payload.amount);
-    let newStatus: InvoiceStatus = inv.status;
-
-    if (newPaidAmount >= Number(inv.totalAmount)) {
-      newStatus = 'PAID';
-    } else if (newPaidAmount > 0) {
-      newStatus = 'PARTIALLY_PAID';
-    }
-
-    const paymentNum = `PAY-2026-00${Date.now().toString().slice(-4)}`;
-    const newPayment: Payment = {
-      id: `pay-uuid-${Date.now()}`,
-      paymentNumber: paymentNum,
-      invoiceId: inv.id,
-      studentId: inv.studentId,
-      amount: payload.amount,
-      currency: 'INR',
-      method: payload.method,
-      status: 'CONFIRMED',
-      transactionReference:
-        payload.transactionReference ||
-        `TXN/${payload.method}/${Date.now().toString().slice(-8)}`,
-      idempotencyKey: `idemp-${Date.now()}`,
-      gatewayProvider: payload.gatewayProvider || payload.method,
-      paidAt: payload.paidAt || new Date().toISOString(),
-      notes: payload.notes,
-      createdAt: new Date().toISOString(),
-      invoice: {
-        id: inv.id,
-        invoiceNumber: inv.invoiceNumber,
-        totalAmount: inv.totalAmount,
-        paidAmount: newPaidAmount,
-        status: newStatus,
-      },
-      student: {
-        id: inv.student.id,
-        studentCode: inv.student.studentCode,
-        fullName: inv.student.fullName,
-        email: inv.student.email,
-      },
-    };
-
-    inv.paidAmount = newPaidAmount;
-    inv.status = newStatus;
-    inv.payments = [newPayment, ...(inv.payments || [])];
-    inv.updatedAt = new Date().toISOString();
-
-    list[invoiceIndex] = inv;
-    saveStoredInvoices(list);
-    return newPayment;
+    return res?.data || res;
   },
 
   async getPayments(params?: {
     search?: string;
     method?: string;
     status?: string;
+    page?: number;
+    limit?: number;
   }): Promise<Payment[]> {
-    if (tokenStorage.getAccessToken()) {
-      try {
-        const query = new URLSearchParams();
-        if (params?.search) query.append('search', params.search);
-        if (params?.method && params.method !== 'ALL') query.append('method', params.method);
-        if (params?.status && params.status !== 'ALL') query.append('status', params.status);
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.method && params.method !== 'ALL') query.append('method', params.method);
+    if (params?.status && params.status !== 'ALL') query.append('status', params.status);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
 
-        const res: any = await apiClient.get(`/payments?${query.toString()}`);
-        if (res?.success && res?.data) {
-          return Array.isArray(res.data) ? res.data : res.data.data || [];
-        }
-      } catch {
-        // Fallback
-      }
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const res: any = await apiClient.get(`/payments${queryString}`);
+
+    if (res?.success && res?.data) {
+      if (Array.isArray(res.data)) return res.data;
+      if (Array.isArray(res.data.data)) return res.data.data;
     }
-
-    const list = getStoredInvoices();
-    let allPayments: Payment[] = [];
-    for (const inv of list) {
-      if (inv.payments && inv.payments.length > 0) {
-        for (const p of inv.payments) {
-          allPayments.push({
-            ...p,
-            invoice: {
-              id: inv.id,
-              invoiceNumber: inv.invoiceNumber,
-              totalAmount: inv.totalAmount,
-              paidAmount: inv.paidAmount,
-              status: inv.status,
-            },
-            student: inv.student,
-          });
-        }
-      }
-    }
-
-    if (params?.search) {
-      const q = params.search.toLowerCase();
-      allPayments = allPayments.filter(
-        (p) =>
-          p.paymentNumber.toLowerCase().includes(q) ||
-          p.transactionReference?.toLowerCase().includes(q) ||
-          p.student?.fullName.toLowerCase().includes(q) ||
-          p.invoice?.invoiceNumber.toLowerCase().includes(q),
-      );
-    }
-
-    if (params?.method && params.method !== 'ALL') {
-      allPayments = allPayments.filter((p) => p.method === params.method);
-    }
-
-    if (params?.status && params.status !== 'ALL') {
-      allPayments = allPayments.filter((p) => p.status === params.status);
-    }
-
-    return allPayments;
+    if (Array.isArray(res)) return res;
+    return [];
   },
 
   async getPaymentById(id: string): Promise<Payment | null> {
-    if (tokenStorage.getAccessToken()) {
-      try {
-        const res: any = await apiClient.get(`/payments/${id}`);
-        if (res?.success && res?.data) {
-          return res.data;
-        }
-      } catch {
-        // Fallback
-      }
+    const res: any = await apiClient.get(`/payments/${id}`);
+    if (res?.success && res?.data) {
+      return res.data;
     }
-
-    const list = getStoredInvoices();
-    for (const inv of list) {
-      const found = inv.payments?.find(
-        (p) => p.id === id || p.paymentNumber === id,
-      );
-      if (found) {
-        return {
-          ...found,
-          invoice: {
-            id: inv.id,
-            invoiceNumber: inv.invoiceNumber,
-            totalAmount: inv.totalAmount,
-            paidAmount: inv.paidAmount,
-            status: inv.status,
-          },
-          student: inv.student,
-        };
-      }
-    }
-    return null;
+    if (res?.data) return res.data;
+    return res || null;
   },
 
   computeMetrics(invoices: Invoice[]): BillingMetrics {

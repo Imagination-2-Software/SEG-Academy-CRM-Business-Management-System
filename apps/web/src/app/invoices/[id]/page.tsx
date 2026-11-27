@@ -16,6 +16,7 @@ import {
   getPaymentMethodLabel,
   isPastDue,
 } from '@/lib/api/billing';
+import { useAuth } from '@/lib/auth';
 import { RecordPaymentModal } from '@/components/billing/record-payment-modal';
 import {
   ArrowLeft,
@@ -29,9 +30,13 @@ import {
   Download,
   Share2,
   ExternalLink,
+  Send,
+  XCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function InvoiceDetailsPage() {
+  const { hasPermission } = useAuth();
   const params = useParams();
   const searchParams = useSearchParams();
   const invoiceId = params.id as string;
@@ -40,6 +45,14 @@ export default function InvoiceDetailsPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  // Workflow action states
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const fetchInvoice = async () => {
     setIsLoading(true);
@@ -71,6 +84,40 @@ export default function InvoiceDetailsPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleFinalize = async () => {
+    if (!invoice || isFinalizing) return;
+    setIsFinalizing(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await billingService.finalizeInvoice(invoice.id);
+      setActionSuccess('Invoice successfully finalized and issued.');
+      setShowFinalizeModal(false);
+      await fetchInvoice();
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to finalize invoice.');
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!invoice || isCancelling) return;
+    setIsCancelling(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await billingService.cancelInvoice(invoice.id);
+      setActionSuccess('Invoice has been cancelled.');
+      setShowCancelModal(false);
+      await fetchInvoice();
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to cancel invoice.');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   if (isLoading) {
@@ -129,6 +176,11 @@ export default function InvoiceDetailsPage() {
   const cgst = Number(invoice.taxAmount) / 2;
   const sgst = Number(invoice.taxAmount) / 2;
 
+  // Status & permission guards for invoice lifecycle actions
+  const hasUpdatePermission = hasPermission('invoices:update');
+  const canFinalize = hasUpdatePermission && invoice.status === 'DRAFT' && !invoice.isFinalized;
+  const canCancel = hasUpdatePermission && invoice.status !== 'CANCELLED' && Number(invoice.paidAmount) === 0;
+
   return (
     <AppShell
       allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']}
@@ -162,7 +214,39 @@ export default function InvoiceDetailsPage() {
               Print / Save PDF
             </Button>
 
-            {balanceDue > 0 && invoice.status !== 'CANCELLED' && (
+            {/* Finalize / Issue Invoice Action (DRAFT only) */}
+            {canFinalize && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setActionError(null);
+                  setShowFinalizeModal(true);
+                }}
+                className="border-emerald-600/30 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/40 text-xs font-medium"
+              >
+                <Send className="mr-1.5 h-3.5 w-3.5" />
+                Finalize & Issue
+              </Button>
+            )}
+
+            {/* Cancel Invoice Action (Not CANCELLED and paidAmount === 0) */}
+            {canCancel && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setActionError(null);
+                  setShowCancelModal(true);
+                }}
+                className="border-red-600/30 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 text-xs font-medium"
+              >
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                Cancel Invoice
+              </Button>
+            )}
+
+            {balanceDue > 0 && invoice.status !== 'CANCELLED' && hasPermission('payments:create') && (
               <Button
                 size="sm"
                 onClick={() => setIsPaymentModalOpen(true)}
@@ -174,6 +258,20 @@ export default function InvoiceDetailsPage() {
             )}
           </div>
         </div>
+
+        {/* Action Error or Success Banner */}
+        {actionError && (
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 print:hidden">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+        )}
+        {actionSuccess && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-medium text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300 print:hidden">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+        )}
 
         {/* Printable Tax Invoice Paper Document */}
         <div className="rounded-xl border border-border/80 bg-card p-6 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none sm:p-10">
@@ -309,11 +407,11 @@ export default function InvoiceDetailsPage() {
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 text-xs">
                 <div className="font-bold text-foreground">Bank Remittance Details</div>
                 <div className="mt-2 space-y-1 text-muted-foreground font-mono text-[11px]">
-                  <div>Bank: HDFC Bank Ltd</div>
-                  <div>A/C Name: SEG Academy Pvt Ltd</div>
-                  <div>A/C No: 50200088991122</div>
-                  <div>IFSC: HDFC0000123 (BKC Branch)</div>
-                  <div>UPI: segacademy@hdfcbank</div>
+                  <div>Bank: XYZ</div>
+                  <div>A/C Name: XYZ</div>
+                  <div>A/C No: 123</div>
+                  <div>IFSC: XYZ</div>
+                  <div>UPI: 123</div>
                 </div>
               </div>
 
@@ -406,7 +504,7 @@ export default function InvoiceDetailsPage() {
               </p>
             </div>
 
-            {balanceDue > 0 && invoice.status !== 'CANCELLED' && (
+            {balanceDue > 0 && invoice.status !== 'CANCELLED' && hasPermission('payments:create') && (
               <Button
                 size="sm"
                 variant="outline"
@@ -485,6 +583,114 @@ export default function InvoiceDetailsPage() {
             fetchInvoice();
           }}
         />
+      )}
+
+      {/* Finalize Confirmation Modal */}
+      {showFinalizeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                <Send className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  Finalize & Issue Invoice
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Invoice {invoice.invoiceNumber}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              Are you sure you want to finalize and issue this invoice? Once issued, line items and financial amounts will be locked against modifications, and payment collection will be enabled.
+            </p>
+
+            {actionError && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowFinalizeModal(false);
+                  setActionError(null);
+                }}
+                disabled={isFinalizing}
+              >
+                Dismiss
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleFinalize}
+                disabled={isFinalizing}
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                {isFinalizing ? 'Finalizing...' : 'Yes, Issue Invoice'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  Cancel Invoice
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Invoice {invoice.invoiceNumber}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              Are you sure you want to cancel this invoice? This action marks the invoice as CANCELLED. Invoices with recorded payments cannot be cancelled.
+            </p>
+
+            {actionError && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setActionError(null);
+                }}
+                disabled={isCancelling}
+              >
+                Keep Invoice
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleCancel}
+                disabled={isCancelling}
+              >
+                {isCancelling ? 'Cancelling...' : 'Yes, Cancel Invoice'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </AppShell>
   );

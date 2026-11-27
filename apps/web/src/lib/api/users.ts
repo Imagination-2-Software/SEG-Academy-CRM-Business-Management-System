@@ -2,185 +2,240 @@ import { apiClient } from './client';
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'INVITED';
 
+export interface UserRoleSummary {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissions?: string[];
+}
+
+export interface UserEmployeeSummary {
+  id: string;
+  employeeCode: string;
+  jobTitle: string;
+  employmentType?: string;
+  department?: { id: string; name: string; code: string } | null;
+  team?: { id: string; name: string; code: string } | null;
+  joinDate?: string;
+}
+
 export interface UserSummary {
   id: string;
   email: string;
   fullName: string;
-  phoneNumber?: string;
+  phoneNumber?: string | null;
   roleId: string;
-  roleCode: string;
-  roleName: string;
   status: UserStatus;
-  avatarUrl?: string;
-  lastLoginAt?: string;
+  avatarUrl?: string | null;
+  lastLoginAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  role: UserRoleSummary;
+  employee?: UserEmployeeSummary | null;
+  // Computed / legacy convenience getters
+  roleCode?: string;
+  roleName?: string;
   employeeCode?: string;
   jobTitle?: string;
   departmentName?: string;
+}
+
+export interface RoleWithPermissions {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissions: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-const INITIAL_USERS: UserSummary[] = [
-  {
-    id: 'usr-001',
-    email: 'admin@segacademy.com',
-    fullName: 'Alexander Wright',
-    phoneNumber: '+91 98765 43210',
-    roleId: 'role-super-admin',
-    roleCode: 'FOUNDER_SUPER_ADMIN',
-    roleName: 'Founder / Super Admin',
-    status: 'ACTIVE',
-    employeeCode: 'EMP-001',
-    jobTitle: 'Founder & Academic Director',
-    departmentName: 'Executive Directorate',
-    lastLoginAt: '2026-11-24T02:15:00.000Z',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-11-24T02:15:00.000Z',
-  },
-  {
-    id: 'usr-002',
-    email: 'sarah.jenkins@segacademy.com',
-    fullName: 'Sarah Jenkins',
-    phoneNumber: '+91 98765 43211',
-    roleId: 'role-instructor',
-    roleCode: 'INSTRUCTOR',
-    roleName: 'Lead Technical Instructor',
-    status: 'ACTIVE',
-    employeeCode: 'EMP-002',
-    jobTitle: 'Lead Technical Instructor',
-    departmentName: 'Academic Operations',
-    lastLoginAt: '2026-11-23T18:40:00.000Z',
-    createdAt: '2026-01-15T00:00:00.000Z',
-    updatedAt: '2026-11-23T18:40:00.000Z',
-  },
-  {
-    id: 'usr-003',
-    email: 'marcus.vance@segacademy.com',
-    fullName: 'Marcus Vance',
-    phoneNumber: '+91 98765 43212',
-    roleId: 'role-it-admin',
-    roleCode: 'ADMIN',
-    roleName: 'Systems Administrator',
-    status: 'ACTIVE',
-    employeeCode: 'EMP-003',
-    jobTitle: 'Cloud Infrastructure Engineer',
-    departmentName: 'Technology & Systems',
-    lastLoginAt: '2026-11-24T01:10:00.000Z',
-    createdAt: '2026-02-01T00:00:00.000Z',
-    updatedAt: '2026-11-24T01:10:00.000Z',
-  },
-  {
-    id: 'usr-004',
-    email: 'david.chen@segacademy.com',
-    fullName: 'David Chen',
-    phoneNumber: '+91 98765 43213',
-    roleId: 'role-counsellor',
-    roleCode: 'ACADEMIC_COUNSELLOR',
-    roleName: 'Academic Counsellor',
-    status: 'ACTIVE',
-    employeeCode: 'EMP-004',
-    jobTitle: 'Admissions & Compliance Specialist',
-    departmentName: 'Admissions & Compliance',
-    lastLoginAt: '2026-11-23T16:20:00.000Z',
-    createdAt: '2026-02-15T00:00:00.000Z',
-    updatedAt: '2026-11-23T16:20:00.000Z',
-  },
-  {
-    id: 'usr-005',
-    email: 'elena.rostova@segacademy.com',
-    fullName: 'Elena Rostova',
-    phoneNumber: '+91 98765 43214',
-    roleId: 'role-finance',
-    roleCode: 'FINANCE_MANAGER',
-    roleName: 'Finance Manager',
-    status: 'ACTIVE',
-    employeeCode: 'EMP-005',
-    jobTitle: 'Senior Accounts Officer',
-    departmentName: 'Finance & Accounts',
-    lastLoginAt: '2026-11-23T14:05:00.000Z',
-    createdAt: '2026-03-01T00:00:00.000Z',
-    updatedAt: '2026-11-23T14:05:00.000Z',
-  },
-  {
-    id: 'usr-006',
-    email: 'priya.sharma@segacademy.com',
-    fullName: 'Priya Sharma',
-    phoneNumber: '+91 98765 43215',
-    roleId: 'role-hr',
-    roleCode: 'HR_MANAGER',
-    roleName: 'Human Resources Manager',
-    status: 'ACTIVE',
-    employeeCode: 'EMP-006',
-    jobTitle: 'HR & People Operations Lead',
-    departmentName: 'Human Resources & Talent',
-    lastLoginAt: '2026-11-22T11:30:00.000Z',
-    createdAt: '2026-03-10T00:00:00.000Z',
-    updatedAt: '2026-11-22T11:30:00.000Z',
-  },
-  {
-    id: 'usr-007',
-    email: 'rohit.verma@example.com',
-    fullName: 'Rohit Verma',
-    phoneNumber: '+91 98765 43216',
-    roleId: 'role-student',
-    roleCode: 'STUDENT',
-    roleName: 'Student',
-    status: 'ACTIVE',
-    lastLoginAt: '2026-11-21T09:15:00.000Z',
-    createdAt: '2026-09-01T00:00:00.000Z',
-    updatedAt: '2026-11-21T09:15:00.000Z',
-  },
-];
-
-const USERS_STORAGE_KEY = 'seg_crm_users_v1';
-
-function getStoredUsers(): UserSummary[] {
-  if (typeof window === 'undefined') return INITIAL_USERS;
-  try {
-    const raw = localStorage.getItem(USERS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(INITIAL_USERS));
-      return INITIAL_USERS;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_USERS;
-  } catch {
-    return INITIAL_USERS;
-  }
+export interface PaginatedUsersResult {
+  data: UserSummary[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
-function saveStoredUsers(list: UserSummary[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(list));
-  } catch {}
+export interface QueryUsersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: UserStatus | 'ALL';
+  roleCode?: string | 'ALL';
+}
+
+function normalizeUser(raw: any): UserSummary {
+  const role: UserRoleSummary = raw.role
+    ? {
+        id: raw.role.id || raw.roleId || '',
+        code: raw.role.code || raw.roleCode || '',
+        name: raw.role.name || raw.roleName || raw.role.code || '',
+        description: raw.role.description || null,
+        isSystem: raw.role.isSystem ?? true,
+        permissions: raw.role.permissions || [],
+      }
+    : {
+        id: raw.roleId || '',
+        code: raw.roleCode || '',
+        name: raw.roleName || raw.roleCode || '',
+        description: null,
+        isSystem: true,
+        permissions: [],
+      };
+
+  const employee: UserEmployeeSummary | null = raw.employee
+    ? {
+        id: raw.employee.id,
+        employeeCode: raw.employee.employeeCode,
+        jobTitle: raw.employee.jobTitle,
+        employmentType: raw.employee.employmentType,
+        department: raw.employee.department || null,
+        team: raw.employee.team || null,
+        joinDate: raw.employee.joinDate,
+      }
+    : raw.employeeCode
+    ? {
+        id: '',
+        employeeCode: raw.employeeCode,
+        jobTitle: raw.jobTitle || 'Staff Member',
+      }
+    : null;
+
+  return {
+    id: raw.id,
+    email: raw.email,
+    fullName: raw.fullName,
+    phoneNumber: raw.phoneNumber || null,
+    roleId: raw.roleId || role.id,
+    status: raw.status as UserStatus,
+    avatarUrl: raw.avatarUrl || null,
+    lastLoginAt: raw.lastLoginAt || null,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    role,
+    employee,
+    roleCode: role.code,
+    roleName: role.name,
+    employeeCode: employee?.employeeCode,
+    jobTitle: employee?.jobTitle,
+    departmentName: raw.departmentName || employee?.department?.name,
+  };
 }
 
 export const usersService = {
-  async getUsers(): Promise<UserSummary[]> {
-    try {
-      const res: any = await apiClient.get('/users');
-      if (res.success && res.data) {
-        const list = Array.isArray(res.data) ? res.data : res.data.data;
-        if (list && list.length > 0) return list;
-      }
-    } catch {}
-    return getStoredUsers();
+  /**
+   * Retrieves paginated users list from backend API with optional search, status and role filters.
+   */
+  async getUsers(params?: QueryUsersParams): Promise<PaginatedUsersResult> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.search && params.search.trim()) searchParams.set('search', params.search.trim());
+    if (params?.status && params.status !== 'ALL') searchParams.set('status', params.status);
+    if (params?.roleCode && params.roleCode !== 'ALL') searchParams.set('roleCode', params.roleCode);
+
+    const queryString = searchParams.toString();
+    const endpoint = queryString ? `/users?${queryString}` : '/users';
+
+    const res = await apiClient.get<any>(endpoint);
+
+    if (res.success && res.data) {
+      const rawData = res.data.data || res.data;
+      const dataList: any[] = Array.isArray(rawData) ? rawData : [];
+      const normalizedUsers = dataList.map(normalizeUser);
+
+      const meta = res.data.meta || {
+        total: normalizedUsers.length,
+        page: params?.page || 1,
+        limit: params?.limit || normalizedUsers.length || 20,
+        totalPages: 1,
+      };
+
+      return {
+        data: normalizedUsers,
+        meta,
+      };
+    }
+
+    return {
+      data: [],
+      meta: {
+        total: 0,
+        page: params?.page || 1,
+        limit: params?.limit || 20,
+        totalPages: 1,
+      },
+    };
   },
 
-  async updateUserStatus(id: string, status: UserStatus): Promise<UserSummary | null> {
-    try {
-      await apiClient.patch(`/users/${id}/status`, { status });
-    } catch {}
-
-    const users = getStoredUsers();
-    const idx = users.findIndex((u) => u.id === id);
-    if (idx !== -1) {
-      users[idx].status = status;
-      users[idx].updatedAt = new Date().toISOString();
-      saveStoredUsers(users);
-      return users[idx];
+  /**
+   * Retrieves detailed profile for a single user by ID.
+   */
+  async getUserById(id: string): Promise<UserSummary> {
+    const res = await apiClient.get<any>(`/users/${id}`);
+    if (res.success && res.data) {
+      return normalizeUser(res.data);
     }
-    return null;
+    throw new Error(res.message || 'Failed to fetch user details');
+  },
+
+  /**
+   * Updates user account status (ACTIVE, SUSPENDED, INACTIVE).
+   */
+  async updateUserStatus(id: string, status: UserStatus, reason?: string): Promise<UserSummary> {
+    const res = await apiClient.patch<any>(`/users/${id}/status`, {
+      status,
+      reason,
+    });
+    if (res.success && res.data) {
+      return normalizeUser(res.data);
+    }
+    throw new Error(res.message || 'Failed to update user status');
+  },
+
+  /**
+   * Fetches all available system roles with mapped permissions.
+   */
+  async getRoles(): Promise<RoleWithPermissions[]> {
+    const res = await apiClient.get<RoleWithPermissions[]>('/roles');
+    if (res.success && res.data) {
+      return Array.isArray(res.data) ? res.data : [];
+    }
+    return [];
+  },
+
+  /**
+   * Replaces assigned roles for a target user.
+   */
+  async replaceUserRoles(id: string, roleIds: string[]): Promise<UserSummary> {
+    const res = await apiClient.put<any>(`/users/${id}/roles`, {
+      roleIds,
+    });
+    if (res.success && res.data) {
+      return normalizeUser(res.data);
+    }
+    throw new Error(res.message || 'Failed to update user roles');
+  },
+
+  /**
+   * Changes authenticated user account password.
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const res = await apiClient.post<{ success: boolean; message: string }>('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+    if (res.success && res.data) {
+      return res.data;
+    }
+    return { success: true, message: res.message || 'Password changed successfully.' };
   },
 };

@@ -52,7 +52,8 @@ export default function DepartmentsPage() {
 
   return (
     <AppShell
-      allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}
+      allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']}
+      requiredPermission="users:read"
     >
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Navigation Tabs */}

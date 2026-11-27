@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { useAuth } from '@/lib/auth';
+import { usersService } from '@/lib/api/users';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -36,6 +37,7 @@ function ProfileContent() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
@@ -44,8 +46,10 @@ function ProfileContent() {
     }
   }, [searchParams]);
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingPassword) return;
+
     setPasswordError(null);
     setSuccessMessage(null);
 
@@ -57,15 +61,29 @@ function ProfileContent() {
       setPasswordError('New password must be at least 8 characters long.');
       return;
     }
+    if (newPassword === currentPassword) {
+      setPasswordError('New password must be different from your current password.');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setPasswordError('Passwords do not match.');
       return;
     }
 
-    setSuccessMessage('Password changed successfully. Your active sessions remain protected.');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    setIsSubmittingPassword(true);
+    try {
+      const res = await usersService.changePassword(currentPassword, newPassword);
+
+      setSuccessMessage(res.message || 'Password changed successfully. Your account is secured with Argon2id.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      console.error('Password change failed:', err);
+      setPasswordError(err.message || 'Failed to change password. Please verify your current password.');
+    } finally {
+      setIsSubmittingPassword(false);
+    }
   };
 
   return (
@@ -288,9 +306,10 @@ function ProfileContent() {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="rounded-lg bg-seg-plum px-4 py-2 text-xs font-semibold text-white hover:bg-seg-plum/90"
+                    disabled={isSubmittingPassword || !currentPassword || !newPassword || !confirmPassword}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-seg-plum px-4 py-2 text-xs font-semibold text-white hover:bg-seg-plum/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Update Password
+                    {isSubmittingPassword ? 'Updating Password...' : 'Update Password'}
                   </button>
                 </div>
               </form>

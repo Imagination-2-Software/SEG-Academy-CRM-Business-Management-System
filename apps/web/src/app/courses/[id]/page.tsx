@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { apiClient } from '@/lib/api';
+import { academicService, CourseSummary, BatchSummary, UpdateCoursePayload } from '@/lib/api/academic';
+import { useAuth } from '@/lib/auth';
 import {
   BookOpen,
   ArrowLeft,
@@ -19,52 +20,141 @@ import {
   XCircle,
   Eye,
   AlertCircle,
+  Edit,
+  X,
+  Loader2,
+  Save,
 } from 'lucide-react';
 
 export default function CourseDetailsPage() {
+  const { hasPermission } = useAuth();
   const params = useParams();
   const router = useRouter();
   const courseId = params.id as string;
 
-  const [course, setCourse] = useState<any | null>(null);
-  const [batches, setBatches] = useState<any[]>([]);
+  const [course, setCourse] = useState<CourseSummary | null>(null);
+  const [batches, setBatches] = useState<BatchSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadCourseAndBatches() {
-      setLoading(true);
-      try {
-        const [courseRes, batchesRes]: any = await Promise.all([
-          apiClient.get(`/courses/${courseId}`),
-          apiClient.get('/batches'),
-        ]);
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<UpdateCoursePayload>({
+    title: '',
+    description: '',
+    durationWeeks: 24,
+    totalCredits: 60,
+    baseFee: 125000,
+    isActive: true,
+  });
 
-        if (courseRes?.success && courseRes?.data) {
-          setCourse(courseRes.data);
-        } else {
-          // Fallback search in courses catalog if direct ID endpoint is stubbed
-          const allCourses: any = await apiClient.get('/courses');
-          const list = allCourses?.data?.data || allCourses?.data || [];
-          const found = list.find((c: any) => c.id === courseId || c.code === courseId);
-          if (found) setCourse(found);
-        }
+  const canUpdateCourse = hasPermission('courses:update');
 
-        if (batchesRes?.success && batchesRes?.data) {
-          const list = batchesRes.data.data || batchesRes.data || [];
-          const matched = list.filter((b: any) => b.courseId === courseId || b.course?.id === courseId);
-          setBatches(matched);
-        }
-      } catch (err) {
-        console.error('Failed to load course details', err);
-      } finally {
-        setLoading(false);
+  const loadCourseAndBatches = async () => {
+    setLoading(true);
+    try {
+      const courseData = await academicService.getCourseById(courseId);
+      setCourse(courseData);
+      if (courseData.batches && Array.isArray(courseData.batches)) {
+        setBatches(courseData.batches);
+      } else {
+        const batchesRes = await academicService.listBatches({ courseId, limit: 100 });
+        setBatches(batchesRes.data || []);
       }
+    } catch (err) {
+      console.error('Failed to load course details', err);
+      setCourse(null);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  useEffect(() => {
     if (courseId) {
       loadCourseAndBatches();
     }
   }, [courseId]);
+
+  const handleOpenEditModal = () => {
+    if (!course) return;
+    setEditFormData({
+      title: course.title,
+      description: course.description || '',
+      durationWeeks: course.durationWeeks,
+      totalCredits: course.totalCredits ?? undefined,
+      baseFee: Number(course.baseFee),
+      isActive: course.isActive,
+    });
+    setEditError(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setEditFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === 'isActive') {
+      setEditFormData((prev) => ({ ...prev, isActive: value === 'true' }));
+    } else if (name === 'durationWeeks' || name === 'totalCredits' || name === 'baseFee') {
+      setEditFormData((prev) => ({
+        ...prev,
+        [name]: value === '' ? undefined : Number(value),
+      }));
+    } else {
+      setEditFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleSaveCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!courseId) return;
+
+    if (!editFormData.title?.trim()) {
+      setEditError('Course title is required.');
+      return;
+    }
+
+    if (!editFormData.durationWeeks || editFormData.durationWeeks < 1) {
+      setEditError('Duration in weeks must be at least 1.');
+      return;
+    }
+
+    if (editFormData.baseFee === undefined || editFormData.baseFee < 0) {
+      setEditError('Base fee must be a valid non-negative number.');
+      return;
+    }
+
+    setIsUpdating(true);
+    setEditError(null);
+    setSuccessMessage(null);
+
+    try {
+      const payload: UpdateCoursePayload = {
+        title: editFormData.title.trim(),
+        description: editFormData.description?.trim() || undefined,
+        durationWeeks: Number(editFormData.durationWeeks),
+        totalCredits: editFormData.totalCredits !== undefined ? Number(editFormData.totalCredits) : undefined,
+        baseFee: Number(editFormData.baseFee),
+        isActive: editFormData.isActive,
+      };
+
+      const updated = await academicService.updateCourse(courseId, payload);
+      setCourse((prev) => (prev ? { ...prev, ...updated } : updated));
+      setIsEditModalOpen(false);
+      setSuccessMessage('Course curriculum & pricing updated successfully.');
+      await loadCourseAndBatches();
+    } catch (err: any) {
+      console.error('Failed to update course:', err);
+      setEditError(err.message || 'Failed to update course. Please check inputs.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -126,6 +216,17 @@ export default function CourseDetailsPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {canUpdateCourse && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleOpenEditModal}
+                className="h-8 text-xs font-semibold text-foreground border-border hover:bg-muted"
+              >
+                <Edit className="mr-1.5 h-3.5 w-3.5 text-seg-plum" />
+                Edit Course
+              </Button>
+            )}
             <Link href={`/batches/create?courseId=${course.id}`}>
               <Button size="sm" className="bg-seg-orange text-white hover:bg-seg-orange/90 shadow-xs h-8 text-xs">
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -134,6 +235,22 @@ export default function CourseDetailsPage() {
             </Link>
           </div>
         </div>
+
+        {/* Success Banner */}
+        {successMessage && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-3 text-xs text-emerald-800 dark:text-emerald-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span>{successMessage}</span>
+            </div>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="text-emerald-700 hover:text-emerald-900 dark:text-emerald-400"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* Course Overview Dossier */}
         <div className="rounded-xl border border-border bg-card p-6 shadow-2xs space-y-4">
@@ -255,6 +372,163 @@ export default function CourseDetailsPage() {
             </table>
           </div>
         </div>
+        {/* Edit Course Modal */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+            <div className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-border/80 bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-seg-plum/10 text-seg-plum">
+                    <Edit className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Edit Course Offering</h3>
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      {course.code} &bull; {course.currency}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveCourse} className="p-5 overflow-y-auto space-y-4 text-xs">
+                {editError && (
+                  <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-destructive border border-destructive/20">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{editError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground mb-1">
+                    Course Title <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={editFormData.title || ''}
+                    onChange={handleEditChange}
+                    required
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-seg-plum focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground mb-1">
+                    Course Curriculum Summary & Description
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    value={editFormData.description || ''}
+                    onChange={handleEditChange}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-seg-plum focus:outline-hidden resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">
+                      Duration (Weeks) <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="durationWeeks"
+                      min={1}
+                      max={200}
+                      value={editFormData.durationWeeks ?? ''}
+                      onChange={handleEditChange}
+                      required
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-seg-plum focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">
+                      Academic Credits
+                    </label>
+                    <input
+                      type="number"
+                      name="totalCredits"
+                      min={0}
+                      value={editFormData.totalCredits ?? ''}
+                      onChange={handleEditChange}
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-seg-plum focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">
+                      Base Tuition Fee (₹) <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="baseFee"
+                      min={0}
+                      step="any"
+                      value={editFormData.baseFee ?? ''}
+                      onChange={handleEditChange}
+                      required
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-seg-plum focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">
+                      Catalog Status <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      name="isActive"
+                      value={editFormData.isActive ? 'true' : 'false'}
+                      onChange={handleEditChange}
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-seg-plum focus:outline-hidden font-medium"
+                    >
+                      <option value="true">Active (Accepting Cohorts)</option>
+                      <option value="false">Inactive (Archived)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/80">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdating}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-seg-plum px-4 py-2 text-xs font-semibold text-white hover:bg-seg-plum/90 disabled:opacity-50"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Saving Changes...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5" />
+                        <span>Save Course Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

@@ -294,6 +294,8 @@ describe('UsersService and Roles Assignment Unit Tests', () => {
     assert.equal((user as any).passwordHash, undefined, 'passwordHash must be stripped');
     assert.equal(user.role.code, 'EMPLOYEE_INTERN');
     assert.equal(user.employee?.employeeCode, 'INT-099');
+    assert.ok(Array.isArray(user.role.permissions));
+    assert.ok(user.role.permissions.includes('users:read'));
   });
 
   it('3. GET /api/v1/users/:id - Should throw NotFoundException if user does not exist', async () => {

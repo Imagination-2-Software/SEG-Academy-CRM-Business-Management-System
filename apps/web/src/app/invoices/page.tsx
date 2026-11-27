@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
   InvoiceStatus,
   isPastDue,
 } from '@/lib/api/billing';
+import { useAuth } from '@/lib/auth';
 import { RecordPaymentModal } from '@/components/billing/record-payment-modal';
 import {
   Receipt,
@@ -34,9 +35,12 @@ import {
   FileText,
   DollarSign,
   Download,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function InvoicesPage() {
+  const { hasPermission } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [metrics, setMetrics] = useState<BillingMetrics>({
     totalInvoiced: 0,
@@ -47,49 +51,80 @@ export default function InvoicesPage() {
     paidInvoicesCount: 0,
     pendingInvoicesCount: 0,
   });
-  const [total, setTotal] = useState(0);
-  const [search, setSearch] = useState('');
+
+  // Query and server-side pagination state
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8;
+  const [pageSize, setPageSize] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Loading and error states
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Request race condition guard
+  const activeRequestIdRef = useRef(0);
 
   // Quick payment modal state
   const [activePaymentInvoice, setActivePaymentInvoice] = useState<Invoice | null>(null);
 
-  const fetchInvoices = async () => {
-    setIsLoading(true);
-    try {
-      const res = await billingService.getInvoices({
-        search: search.trim() || undefined,
-        status: statusFilter,
-      });
-      setInvoices(res.invoices);
-      setTotal(res.total);
-      setMetrics(res.metrics);
-    } catch {
-      setInvoices([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // 350ms debounce for search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
+  // Reset to page 1 whenever search or status filter changes
   useEffect(() => {
     setCurrentPage(1);
-    fetchInvoices();
-  }, [statusFilter]);
+  }, [debouncedSearch, statusFilter, pageSize]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchInvoices();
-  };
+  // Fetch invoices from backend with server-side pagination, search and filters
+  const fetchInvoices = useCallback(async () => {
+    const requestId = ++activeRequestIdRef.current;
+    setIsLoading(true);
+    setFetchError(null);
 
-  const totalPages = Math.ceil(invoices.length / pageSize) || 1;
-  const paginatedInvoices = invoices.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
+    try {
+      const res = await billingService.getInvoices({
+        search: debouncedSearch || undefined,
+        status: statusFilter,
+        page: currentPage,
+        limit: pageSize,
+      });
+
+      // Ignore if a newer request was dispatched in the meantime
+      if (requestId !== activeRequestIdRef.current) return;
+
+      setInvoices(res.invoices);
+      setMetrics(res.metrics);
+
+      const serverTotal = res.meta?.total ?? res.total;
+      const serverTotalPages = res.meta?.totalPages ?? Math.max(1, Math.ceil(serverTotal / pageSize));
+
+      setTotalRecords(serverTotal);
+      setTotalPages(serverTotalPages);
+    } catch (err: any) {
+      if (requestId !== activeRequestIdRef.current) return;
+      setFetchError(err.message || 'Failed to load invoices. Please retry.');
+      setInvoices([]);
+      setTotalRecords(0);
+      setTotalPages(1);
+    } finally {
+      if (requestId === activeRequestIdRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [debouncedSearch, statusFilter, currentPage, pageSize]);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   const handleExportCSV = () => {
     if (invoices.length === 0) return;
@@ -162,7 +197,7 @@ export default function InvoicesPage() {
               className="text-xs font-medium"
             >
               <Download className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-              Export CSV
+              Export Page CSV
             </Button>
 
             <Link href="/payments">
@@ -172,12 +207,14 @@ export default function InvoicesPage() {
               </Button>
             </Link>
 
-            <Link href="/invoices/create">
-              <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum-hover">
-                <Plus className="mr-1.5 h-4 w-4" />
-                New Invoice
-              </Button>
-            </Link>
+            {hasPermission('invoices:create') && (
+              <Link href="/invoices/create">
+                <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum-hover">
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  New Invoice
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -196,7 +233,7 @@ export default function InvoicesPage() {
               {formatINR(metrics.totalInvoiced)}
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span>{invoices.length} total generated invoices</span>
+              <span>{totalRecords} total billing records</span>
             </div>
           </div>
 
@@ -254,15 +291,15 @@ export default function InvoicesPage() {
 
         {/* Filters & Search Toolbar */}
         <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <form onSubmit={handleSearchSubmit} className="relative flex-1">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by invoice number (e.g. INV-2026-0041), student name or code..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by invoice number (e.g. INV-2026-0001), student name or code..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="pl-9 text-sm"
             />
-          </form>
+          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -274,26 +311,61 @@ export default function InvoicesPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs font-medium text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
-              <option value="ALL">All Statuses ({total})</option>
-              <option value="ISSUED">Issued (Pending)</option>
+              <option value="ALL">All Statuses ({totalRecords})</option>
+              <option value="ISSUED">Issued (Active)</option>
               <option value="PARTIALLY_PAID">Partially Paid</option>
               <option value="PAID">Fully Paid</option>
               <option value="OVERDUE">Overdue Only</option>
               <option value="DRAFT">Drafts</option>
               <option value="CANCELLED">Cancelled</option>
+              <option value="REFUNDED">Refunded</option>
             </select>
+
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>Show:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="h-9 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
 
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={fetchInvoices}
+              disabled={isLoading}
               className="h-9 text-xs"
             >
+              <RefreshCw className={`mr-1 h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </div>
         </div>
+
+        {/* Error Alert with Retry */}
+        {fetchError && (
+          <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{fetchError}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={fetchInvoices}
+              className="h-7 text-xs text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-900/40"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
 
         {/* Data Table Container */}
         <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
@@ -313,17 +385,32 @@ export default function InvoicesPage() {
                 No invoices found
               </h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {search || statusFilter !== 'ALL'
-                  ? 'No billing records match your filter criteria. Try resetting filters.'
+                {searchInput || statusFilter !== 'ALL'
+                  ? 'No billing records match your filter criteria. Try resetting filters or search.'
                   : 'Start by generating your first student tuition invoice.'}
               </p>
-              <div className="mt-4">
-                <Link href="/invoices/create">
-                  <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum-hover">
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    Create First Invoice
+              <div className="mt-4 flex items-center justify-center gap-2">
+                {(searchInput || statusFilter !== 'ALL') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchInput('');
+                      setStatusFilter('ALL');
+                    }}
+                    className="text-xs"
+                  >
+                    Reset Filters
                   </Button>
-                </Link>
+                )}
+                {hasPermission('invoices:create') && (
+                  <Link href="/invoices/create">
+                    <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum-hover">
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Create First Invoice
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           ) : (
@@ -342,7 +429,7 @@ export default function InvoicesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {paginatedInvoices.map((inv) => {
+                  {invoices.map((inv) => {
                     const balanceDue = Math.max(
                       0,
                       Number(inv.totalAmount) - Number(inv.paidAmount),
@@ -463,7 +550,7 @@ export default function InvoicesPage() {
                               </Button>
                             </Link>
 
-                            {balanceDue > 0 && inv.status !== 'CANCELLED' && (
+                            {balanceDue > 0 && inv.status !== 'CANCELLED' && hasPermission('payments:create') && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -496,25 +583,30 @@ export default function InvoicesPage() {
             </div>
           )}
 
-          {/* Table Footer / Summary */}
+          {/* Table Footer / Server-side Pagination Bar */}
           {!isLoading && invoices.length > 0 && (
-            <div className="flex flex-col items-center justify-between gap-2 border-t border-border/80 bg-muted/20 px-4 py-3 text-xs text-muted-foreground sm:flex-row">
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-border/80 bg-muted/20 px-4 py-3 text-xs text-muted-foreground sm:flex-row">
               <div>
-                Showing <span className="font-semibold text-foreground">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                Showing{' '}
                 <span className="font-semibold text-foreground">
-                  {Math.min(currentPage * pageSize, invoices.length)}
+                  {(currentPage - 1) * pageSize + 1}
                 </span>{' '}
-                of <span className="font-semibold text-foreground">{invoices.length}</span> billing records
+                to{' '}
+                <span className="font-semibold text-foreground">
+                  {Math.min(currentPage * pageSize, totalRecords)}
+                </span>{' '}
+                of <span className="font-semibold text-foreground">{totalRecords}</span> billing records
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={currentPage <= 1}
+                  disabled={currentPage <= 1 || isLoading}
                   className="h-7 px-2 text-xs"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <ChevronLeft className="mr-0.5 h-3.5 w-3.5" />
+                  Previous
                 </Button>
                 <span className="px-2 font-mono font-medium text-foreground">
                   Page {currentPage} of {totalPages}
@@ -523,10 +615,11 @@ export default function InvoicesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                  disabled={currentPage >= totalPages}
+                  disabled={currentPage >= totalPages || isLoading}
                   className="h-7 px-2 text-xs"
                 >
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  Next
+                  <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>

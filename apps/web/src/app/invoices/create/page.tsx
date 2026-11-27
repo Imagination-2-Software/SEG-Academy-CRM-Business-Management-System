@@ -7,13 +7,14 @@ import { AppShell } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { apiClient } from '@/lib/api';
 import {
   billingService,
   formatINR,
   StudentReference,
   InvoiceItem,
 } from '@/lib/api/billing';
+import { studentsService, StudentSummary } from '@/lib/api/students';
+import { academicService, CourseSummary } from '@/lib/api/academic';
 import {
   ArrowLeft,
   Plus,
@@ -26,6 +27,8 @@ import {
   AlertCircle,
   FileText,
   Calculator,
+  BookOpen,
+  RefreshCw,
 } from 'lucide-react';
 
 interface FormItem {
@@ -40,9 +43,15 @@ export default function CreateInvoicePage() {
   const router = useRouter();
 
   // Student selection state
-  const [students, setStudents] = useState<StudentReference[]>([]);
+  const [students, setStudents] = useState<StudentSummary[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<StudentReference | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentSummary | null>(null);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  const [studentLoadError, setStudentLoadError] = useState<string | null>(null);
+
+  // Courses for line-item catalog selection
+  const [courses, setCourses] = useState<CourseSummary[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
 
   // Form fields
   const [issueDate, setIssueDate] = useState(
@@ -79,65 +88,47 @@ export default function CreateInvoicePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Load registered students
-  useEffect(() => {
-    const loadStudents = async () => {
-      try {
-        const res: any = await apiClient.get('/students?limit=100');
-        if (res?.success && res?.data) {
-          const list = Array.isArray(res.data) ? res.data : res.data.data || [];
-          if (list.length > 0) {
-            setStudents(list);
-            setSelectedStudentId(list[0].id);
-            setSelectedStudent(list[0]);
-            return;
-          }
-        }
-      } catch {
-        // Fallback default students
+  // Fetch registered students
+  const fetchStudents = async () => {
+    setIsLoadingStudents(true);
+    setStudentLoadError(null);
+    try {
+      const res = await studentsService.getStudents({ limit: 100 });
+      const list = res?.data || [];
+      setStudents(list);
+      if (list.length > 0) {
+        setSelectedStudentId(list[0].id);
+        setSelectedStudent(list[0]);
+      } else {
+        setSelectedStudentId('');
+        setSelectedStudent(null);
       }
+    } catch (err: any) {
+      setStudentLoadError(err.message || 'Failed to load students directory.');
+      setStudents([]);
+      setSelectedStudentId('');
+      setSelectedStudent(null);
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
 
-      const defaultStudents: StudentReference[] = [
-        {
-          id: 'stu-uuid-1',
-          studentCode: 'SEG-26-0001',
-          fullName: 'Aarav Sharma',
-          email: 'aarav.sharma@example.com',
-          phoneNumber: '+91 98765 43210',
-          address: 'Flat 402, Highrise Residency, Andheri East, Mumbai, Maharashtra 400069',
-        },
-        {
-          id: 'stu-uuid-2',
-          studentCode: 'SEG-26-0002',
-          fullName: 'Priya Patel',
-          email: 'priya.patel@example.com',
-          phoneNumber: '+91 91234 56789',
-          address: 'B-12 Nilgiri Heights, Vastrapur, Ahmedabad, Gujarat 380015',
-        },
-        {
-          id: 'stu-uuid-3',
-          studentCode: 'SEG-26-0003',
-          fullName: 'Rohan Mehta',
-          email: 'rohan.mehta@example.com',
-          phoneNumber: '+91 99887 76655',
-          address: '74 Park View Apartments, Koramangala, Bengaluru, Karnataka 560034',
-        },
-        {
-          id: 'stu-uuid-4',
-          studentCode: 'SEG-26-0004',
-          fullName: 'Neha Gupta',
-          email: 'neha.gupta@example.com',
-          phoneNumber: '+91 97654 32109',
-          address: 'Block C-9, Sector 62, Noida, Uttar Pradesh 201309',
-        },
-      ];
+  // Fetch active courses
+  const fetchCourses = async () => {
+    setIsLoadingCourses(true);
+    try {
+      const res = await academicService.listCourses({ limit: 100, isActive: true });
+      setCourses(res?.data || []);
+    } catch {
+      setCourses([]);
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  };
 
-      setStudents(defaultStudents);
-      setSelectedStudentId(defaultStudents[0].id);
-      setSelectedStudent(defaultStudents[0]);
-    };
-
-    loadStudents();
+  useEffect(() => {
+    fetchStudents();
+    fetchCourses();
   }, []);
 
   const handleStudentChange = (id: string) => {
@@ -179,6 +170,24 @@ export default function CreateInvoicePage() {
             field === 'quantity' || field === 'unitPrice' || field === 'taxRate'
               ? Number(value)
               : value,
+        };
+      }),
+    );
+  };
+
+  // Add line item directly from Course Catalog
+  const handleSelectCourseForLineItem = (courseId: string, itemId: string) => {
+    if (!courseId) return;
+    const course = courses.find((c) => c.id === courseId);
+    if (!course) return;
+
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== itemId) return it;
+        return {
+          ...it,
+          description: `${course.code}: ${course.title} Tuition Fee`,
+          unitPrice: Number(course.baseFee) || 0,
         };
       }),
     );
@@ -282,28 +291,57 @@ export default function CreateInvoicePage() {
           <div className="space-y-6 lg:col-span-2">
             {/* Student & Billing Dates Section */}
             <div className="rounded-xl border border-border/70 bg-card p-5 shadow-sm">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-foreground">
-                <UserCheck className="h-4 w-4 text-seg-plum" />
-                Customer & Invoice Information
-              </h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <UserCheck className="h-4 w-4 text-seg-plum" />
+                  Customer & Invoice Information
+                </h2>
+                {studentLoadError && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchStudents}
+                    className="h-7 text-xs text-seg-plum"
+                  >
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Retry
+                  </Button>
+                )}
+              </div>
 
               <div className="space-y-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-foreground">
                     Select Student <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={selectedStudentId}
-                    onChange={(e) => handleStudentChange(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    required
-                  >
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.fullName} ({s.studentCode}) — {s.email}
-                      </option>
-                    ))}
-                  </select>
+                  {isLoadingStudents ? (
+                    <div className="flex h-10 items-center rounded-md border border-input bg-muted/30 px-3 text-xs text-muted-foreground">
+                      <div className="mr-2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-seg-plum border-t-transparent" />
+                      Loading registered students...
+                    </div>
+                  ) : studentLoadError ? (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+                      {studentLoadError}
+                    </div>
+                  ) : students.length === 0 ? (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                      No registered students found. Please enroll or register a student first.
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedStudentId}
+                      onChange={(e) => handleStudentChange(e.target.value)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      required
+                    >
+                      {students.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.fullName} ({s.studentCode}) — {s.email}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {selectedStudent && (
@@ -319,7 +357,9 @@ export default function CreateInvoicePage() {
                       </div>
                       <div className="col-span-2">
                         <span className="font-semibold text-foreground">Billing Address:</span>{' '}
-                        {selectedStudent.address || 'SEG Academy Campus'}
+                        {[selectedStudent.addressLine1, selectedStudent.city, selectedStudent.state]
+                          .filter(Boolean)
+                          .join(', ') || 'SEG Academy Campus'}
                       </div>
                     </div>
                   </div>
@@ -373,98 +413,127 @@ export default function CreateInvoicePage() {
                 </Button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {items.map((it, idx) => (
                   <div
                     key={it.id}
-                    className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:flex-row sm:items-center"
+                    className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5"
                   >
-                    <div className="flex-1">
-                      <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                        Item #{idx + 1} Description
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="e.g. Tuition Fee, Exam Certification, Lab Fee"
-                        value={it.description}
-                        onChange={(e) =>
-                          handleItemChange(it.id, 'description', e.target.value)
-                        }
-                        className="text-xs"
-                        required
-                      />
-                    </div>
-
-                    <div className="w-20">
-                      <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                        Qty
-                      </label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={it.quantity}
-                        onChange={(e) =>
-                          handleItemChange(it.id, 'quantity', e.target.value)
-                        }
-                        className="text-xs"
-                        required
-                      />
-                    </div>
-
-                    <div className="w-28">
-                      <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                        Unit Rate (₹)
-                      </label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="100"
-                        value={it.unitPrice}
-                        onChange={(e) =>
-                          handleItemChange(it.id, 'unitPrice', e.target.value)
-                        }
-                        className="text-xs font-medium"
-                        required
-                      />
-                    </div>
-
-                    <div className="w-24">
-                      <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                        GST %
-                      </label>
-                      <select
-                        value={it.taxRate}
-                        onChange={(e) =>
-                          handleItemChange(it.id, 'taxRate', e.target.value)
-                        }
-                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <option value={0}>0% (Exempt)</option>
-                        <option value={5}>5% GST</option>
-                        <option value={12}>12% GST</option>
-                        <option value={18}>18% GST</option>
-                      </select>
-                    </div>
-
-                    <div className="w-28 text-right">
-                      <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                        Amount
-                      </label>
-                      <div className="py-2 text-xs font-bold text-foreground">
-                        {formatINR(it.quantity * it.unitPrice)}
+                    {/* Catalog Helper Row if courses exist */}
+                    {courses.length > 0 && (
+                      <div className="flex items-center gap-2 pb-1 border-b border-border/40">
+                        <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                          Prepopulate from Course:
+                        </span>
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleSelectCourseForLineItem(e.target.value, it.id);
+                              e.target.value = '';
+                            }
+                          }}
+                          className="h-7 rounded border border-input bg-background px-2 text-[11px] font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          <option value="">-- Choose Course Catalog Item --</option>
+                          {courses.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.code} - {c.title} ({formatINR(Number(c.baseFee))})
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="pt-4 sm:pt-0">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(it.id)}
-                        disabled={items.length <= 1}
-                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-red-600 disabled:opacity-30"
-                        title="Remove Item"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="flex-1">
+                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                          Item #{idx + 1} Description
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. Tuition Fee, Exam Certification, Lab Fee"
+                          value={it.description}
+                          onChange={(e) =>
+                            handleItemChange(it.id, 'description', e.target.value)
+                          }
+                          className="text-xs"
+                          required
+                        />
+                      </div>
+
+                      <div className="w-20">
+                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                          Qty
+                        </label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={it.quantity}
+                          onChange={(e) =>
+                            handleItemChange(it.id, 'quantity', e.target.value)
+                          }
+                          className="text-xs"
+                          required
+                        />
+                      </div>
+
+                      <div className="w-28">
+                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                          Unit Rate (₹)
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={it.unitPrice}
+                          onChange={(e) =>
+                            handleItemChange(it.id, 'unitPrice', e.target.value)
+                          }
+                          className="text-xs font-medium"
+                          required
+                        />
+                      </div>
+
+                      <div className="w-24">
+                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                          GST %
+                        </label>
+                        <select
+                          value={it.taxRate}
+                          onChange={(e) =>
+                            handleItemChange(it.id, 'taxRate', e.target.value)
+                          }
+                          className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          <option value={0}>0% (Exempt)</option>
+                          <option value={5}>5% GST</option>
+                          <option value={12}>12% GST</option>
+                          <option value={18}>18% GST</option>
+                        </select>
+                      </div>
+
+                      <div className="w-28 text-right">
+                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                          Amount
+                        </label>
+                        <div className="py-2 text-xs font-bold text-foreground">
+                          {formatINR(it.quantity * it.unitPrice)}
+                        </div>
+                      </div>
+
+                      <div className="pt-4 sm:pt-0">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(it.id)}
+                          disabled={items.length <= 1}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-red-600 disabled:opacity-30"
+                          title="Remove Item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -545,7 +614,7 @@ export default function CreateInvoicePage() {
                 <Button
                   type="button"
                   onClick={() => handleSubmit(true)}
-                  disabled={isSubmitting || grandTotal <= 0}
+                  disabled={isSubmitting || grandTotal <= 0 || !selectedStudentId}
                   className="w-full bg-seg-plum text-white hover:bg-seg-plum-hover"
                 >
                   <CheckCircle2 className="mr-1.5 h-4 w-4" />
@@ -556,7 +625,7 @@ export default function CreateInvoicePage() {
                   type="button"
                   variant="outline"
                   onClick={() => handleSubmit(false)}
-                  disabled={isSubmitting || grandTotal <= 0}
+                  disabled={isSubmitting || grandTotal <= 0 || !selectedStudentId}
                   className="w-full text-xs font-medium"
                 >
                   Save as Draft

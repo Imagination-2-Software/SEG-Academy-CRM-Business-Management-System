@@ -283,6 +283,7 @@ describe('Part 4 Step 6 — End-to-End Authentication & Security Integration Tes
     prismaMock,
     passwordService,
     tokenService,
+    auditServiceMock,
   );
 
   const passwordResetService = new PasswordResetService(

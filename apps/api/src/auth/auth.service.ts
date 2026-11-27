@@ -2,12 +2,15 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PasswordService } from './password.service';
 import { TokenService, JwtPayload } from './token.service';
 import { LoginDto } from './dto/auth.dto';
+import { SetupFounderDto } from './dto/setup-founder.dto';
+import { AuditService } from '../audit/audit.service';
 
 export interface AuthTokens {
   accessToken: string;
@@ -39,6 +42,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     private readonly tokenService: TokenService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -274,5 +278,254 @@ export class AuthService {
       data: { isRevoked: true },
     });
     return { revokedCount: result.count };
+  }
+
+  /**
+   * Checks whether the system already has a registered user or Founder account.
+   */
+  async getSetupStatus(): Promise<{ initialized: boolean; message: string }> {
+    const founderRole = await this.prisma.role.findUnique({
+      where: { code: 'FOUNDER_SUPER_ADMIN' },
+    });
+
+    let founderCount = 0;
+    if (founderRole) {
+      founderCount = await this.prisma.user.count({
+        where: { roleId: founderRole.id },
+      });
+    }
+
+    const totalUsers = await this.prisma.user.count();
+
+    const initialized = founderCount > 0;
+    return {
+      initialized,
+      message: initialized
+        ? 'System is already initialized with an active Founder / Super Admin account.'
+        : totalUsers === 0
+          ? 'System is uninitialized. First-time Founder setup is available.'
+          : 'First-time Founder setup is pending.',
+    };
+  }
+
+  /**
+   * Secure one-time initialization of the primary Founder / Super Admin account.
+   * Strictly blocked if an account with FOUNDER_SUPER_ADMIN role already exists.
+   */
+  async setupFounder(
+    dto: SetupFounderDto,
+    metadata?: { userAgent?: string; ipAddress?: string },
+  ): Promise<AuthResponse> {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+
+    // 1. Check whether a Founder account already exists
+    let founderRole = await this.prisma.role.findUnique({
+      where: { code: 'FOUNDER_SUPER_ADMIN' },
+    });
+
+    if (founderRole) {
+      const existingFounderCount = await this.prisma.user.count({
+        where: { roleId: founderRole.id },
+      });
+
+      if (existingFounderCount > 0) {
+        this.logger.warn(
+          `Setup rejected: Founder account already exists. Blocked attempt from IP: ${metadata?.ipAddress}`,
+        );
+        throw new ForbiddenException(
+          'System initialization completed. A Founder / Super Admin account is already configured. New administrators must be created by existing administrators.',
+        );
+      }
+    } else {
+      // Auto-provision system FOUNDER_SUPER_ADMIN role if missing
+      founderRole = await this.prisma.role.create({
+        data: {
+          code: 'FOUNDER_SUPER_ADMIN',
+          name: 'Founder / Super Admin',
+          description: 'Universal administrative and operational permissions across the SEG CRM platform.',
+          isSystem: true,
+        },
+      });
+    }
+
+    // 2. Duplicate email check
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (existingUser) {
+      throw new ConflictException(
+        `An account with email "${normalizedEmail}" already exists in the system.`,
+      );
+    }
+
+    // 3. Hash password using Argon2id (m=64MB, t=3, p=4)
+    const passwordHash = await this.passwordService.hashPassword(dto.password);
+
+    // 4. Create Founder User in a transaction
+    const newUser = await this.prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        fullName: dto.fullName.trim(),
+        passwordHash,
+        roleId: founderRole.id,
+        status: 'ACTIVE',
+      },
+      include: {
+        role: true,
+        employee: {
+          select: { id: true },
+        },
+      },
+    });
+
+    // 5. Issue initial authentication tokens for seamless access
+    const jwtPayload: Omit<JwtPayload, 'iat' | 'exp'> = {
+      sub: newUser.id,
+      email: newUser.email,
+      roleCode: newUser.role.code,
+      fullName: newUser.fullName,
+      employeeId: newUser.employee?.id,
+    };
+    const accessToken = this.tokenService.signAccessToken(jwtPayload);
+    const rawRefreshToken = this.passwordService.generateRandomToken(32);
+    const tokenHash = this.passwordService.hashToken(rawRefreshToken);
+    const expiresAt = this.tokenService.getRefreshTokenExpiryDate();
+
+    await this.prisma.refreshToken.create({
+      data: {
+        userId: newUser.id,
+        tokenHash,
+        expiresAt,
+        userAgent: metadata?.userAgent,
+        ipAddress: metadata?.ipAddress,
+      },
+    });
+
+    const tokens: AuthTokens = {
+      accessToken,
+      refreshToken: rawRefreshToken,
+      tokenType: 'Bearer',
+      expiresIn: this.tokenService.getAccessTokenTtlSeconds(),
+    };
+
+    // 6. Record security audit log
+    await this.auditService.log({
+      actorUserId: newUser.id,
+      action: 'SYSTEM_INITIALIZED_FOUNDER_SETUP',
+      resource: 'User',
+      resourceId: newUser.id,
+      ipAddress: metadata?.ipAddress,
+      userAgent: metadata?.userAgent,
+      payload: {
+        email: newUser.email,
+        fullName: newUser.fullName,
+        roleCode: newUser.role.code,
+      },
+    });
+
+    this.logger.log(
+      `Founder / Super Admin initialized successfully: ${newUser.email} (${newUser.id})`,
+    );
+
+    return {
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        fullName: newUser.fullName,
+        role: {
+          id: newUser.role.id,
+          code: newUser.role.code,
+          name: newUser.role.name,
+        },
+        employeeId: newUser.employee?.id,
+      },
+      tokens,
+    };
+  }
+
+  /**
+   * Changes authenticated user password after verifying current credentials.
+   * Hashes new password using Argon2id.
+   * Revokes all active refresh tokens EXCEPT the current active session if provided,
+   * or all sessions with clear notification.
+   */
+  async changePassword(
+    userId: string,
+    currentPasswordCandidate: string,
+    newPasswordCandidate: string,
+    metadata?: { userAgent?: string; ipAddress?: string; currentRefreshToken?: string },
+  ): Promise<{ success: boolean; message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found or unauthenticated.');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Account is not active.');
+    }
+
+    // Verify current password with Argon2id
+    const isCurrentPasswordValid = await this.passwordService.verifyPassword(
+      user.passwordHash,
+      currentPasswordCandidate,
+    );
+
+    if (!isCurrentPasswordValid) {
+      this.logger.warn(`Failed password change attempt for user ${user.id}: incorrect current password.`);
+      throw new UnauthorizedException('Current password does not match.');
+    }
+
+    // Hash new password using Argon2id
+    const newPasswordHash = await this.passwordService.hashPassword(newPasswordCandidate);
+
+    // Optional: identify current refresh token hash if client provided it
+    let currentTokenHash: string | undefined;
+    if (metadata?.currentRefreshToken) {
+      currentTokenHash = this.passwordService.hashToken(metadata.currentRefreshToken);
+    }
+
+    // Atomically update password
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { passwordHash: newPasswordHash },
+      });
+
+      // Invalidate sessions: if current refresh token hash provided, preserve it and revoke other sessions;
+      // otherwise keep active tokens or revoke older ones.
+      if (currentTokenHash) {
+        await tx.refreshToken.updateMany({
+          where: {
+            userId: user.id,
+            isRevoked: false,
+            tokenHash: { not: currentTokenHash },
+          },
+          data: { isRevoked: true },
+        });
+      }
+    });
+
+    // Record audit log
+    await this.auditService.log({
+      actorUserId: user.id,
+      action: 'USER_PASSWORD_CHANGED',
+      resource: 'User',
+      resourceId: user.id,
+      payload: {
+        otherSessionsRevoked: !!currentTokenHash,
+      },
+      ipAddress: metadata?.ipAddress,
+      userAgent: metadata?.userAgent,
+    });
+
+    this.logger.log(`Password changed successfully for user ${user.id}.`);
+
+    return {
+      success: true,
+      message: 'Password changed successfully. Your account is secured with Argon2id.',
+    };
   }
 }

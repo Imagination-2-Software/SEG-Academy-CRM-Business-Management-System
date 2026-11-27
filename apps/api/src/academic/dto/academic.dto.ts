@@ -111,7 +111,7 @@ export class QueryCoursesDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page: number = 1;
+  page?: number = 1;
 
   @ApiPropertyOptional({ default: 20 })
   @IsOptional()
@@ -119,7 +119,7 @@ export class QueryCoursesDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit: number = 20;
+  limit?: number = 20;
 
   @ApiPropertyOptional({ description: 'Search term matching code or title' })
   @IsOptional()
@@ -223,7 +223,7 @@ export class QueryBatchesDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page: number = 1;
+  page?: number = 1;
 
   @ApiPropertyOptional({ default: 20 })
   @IsOptional()
@@ -231,7 +231,7 @@ export class QueryBatchesDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit: number = 20;
+  limit?: number = 20;
 
   @ApiPropertyOptional({ description: 'Filter by Course ID' })
   @IsOptional()
@@ -292,7 +292,7 @@ export class QueryEnrolmentsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page: number = 1;
+  page?: number = 1;
 
   @ApiPropertyOptional({ default: 20 })
   @IsOptional()
@@ -300,7 +300,7 @@ export class QueryEnrolmentsDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit: number = 20;
+  limit?: number = 20;
 
   @ApiPropertyOptional({ description: 'Filter by Student ID' })
   @IsOptional()

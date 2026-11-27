@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { AppShell } from '@/components/layout/app-shell';
+import { useAuth } from '@/lib/auth';
 import { TaskNav } from '@/components/tasks/task-nav';
 import {
   TaskPriorityBadge,
@@ -46,6 +47,7 @@ import {
 } from 'lucide-react';
 
 export default function TaskDetailPage() {
+  const { user, hasPermission } = useAuth();
   const params = useParams();
   const router = useRouter();
   const taskId = params.id as string;
@@ -117,7 +119,28 @@ export default function TaskDetailPage() {
     (s) => s.status === 'SUBMITTED' || s.status === 'LATE'
   );
 
+  // Can review if user has task evaluation permission AND is NOT evaluating their own submission
+  const canEvaluate = (submission?: TaskSubmission) => {
+    if (!submission) return false;
+    const hasReviewPermission =
+      hasPermission('tasks:review') ||
+      hasPermission('tasks:update') ||
+      hasPermission('tasks:create') ||
+      user?.role?.code === 'FOUNDER_SUPER_ADMIN' ||
+      user?.role?.code === 'ADMIN' ||
+      user?.role?.code === 'TEAM_LEADER';
+
+    // Prevent instructors/employees from evaluating their own submissions
+    const isSelfSubmission =
+      user &&
+      (submission.submittedById === user.id ||
+        (user.email && submission.submittedByEmail === user.email));
+
+    return hasReviewPermission && !isSelfSubmission;
+  };
+
   const handleOpenReview = (sub: TaskSubmission) => {
+    if (!canEvaluate(sub)) return;
     setSelectedSubmission(sub);
     setShowReviewModal(true);
   };
@@ -157,7 +180,7 @@ export default function TaskDetailPage() {
                 Update Status
               </button>
 
-              {pendingSubmission && (
+              {pendingSubmission && canEvaluate(pendingSubmission) && (
                 <button
                   onClick={() => handleOpenReview(pendingSubmission)}
                   className="flex items-center gap-1.5 rounded-lg border border-purple-300 bg-purple-50 px-3.5 py-2 text-xs font-semibold text-purple-800 hover:bg-purple-100 shadow-2xs dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300"
@@ -381,12 +404,18 @@ export default function TaskDetailPage() {
                             <span className="text-muted-foreground italic text-[11px]">
                               Awaiting rubric review & grading
                             </span>
-                            <button
-                              onClick={() => handleOpenReview(sub)}
-                              className="font-semibold text-seg-plum hover:underline"
-                            >
-                              Evaluate Now →
-                            </button>
+                            {canEvaluate(sub) ? (
+                              <button
+                                onClick={() => handleOpenReview(sub)}
+                                className="font-semibold text-seg-plum hover:underline"
+                              >
+                                Evaluate Now →
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">
+                                Self-submission (peer evaluation required)
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>

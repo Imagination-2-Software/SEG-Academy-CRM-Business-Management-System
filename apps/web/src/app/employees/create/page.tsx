@@ -137,7 +137,7 @@ function CreateEmployeeContent() {
   };
 
   return (
-    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}>
+    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']} requiredPermission="users:create">
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -181,7 +181,7 @@ function CreateEmployeeContent() {
                 </label>
                 <Input
                   type="text"
-                  placeholder="e.g. Dr. Rajesh Iyer, Ananya Deshmukh"
+                  placeholder="XYZ"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="text-sm"
@@ -195,7 +195,7 @@ function CreateEmployeeContent() {
                 </label>
                 <Input
                   type="email"
-                  placeholder="e.g. name@segacademy.com"
+                  placeholder="xyz@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="text-sm"
@@ -209,7 +209,7 @@ function CreateEmployeeContent() {
                 </label>
                 <Input
                   type="tel"
-                  placeholder="e.g. +91 98765 43210"
+                  placeholder="123"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   className="text-sm"
@@ -222,7 +222,7 @@ function CreateEmployeeContent() {
                 </label>
                 <Input
                   type="text"
-                  placeholder="Leave blank to auto-generate (e.g. EMP-2026-0012)"
+                  placeholder="ABC"
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value.toUpperCase())}
                   className="font-mono text-sm uppercase"
@@ -284,7 +284,7 @@ function CreateEmployeeContent() {
                 </label>
                 <Input
                   type="text"
-                  placeholder="e.g. Lead Faculty - Cloud Architecture, Counselor"
+                  placeholder="XYZ"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   className="text-sm"
@@ -416,7 +416,7 @@ function CreateEmployeeContent() {
                   </label>
                   <Input
                     type="text"
-                    placeholder="e.g. VJTI Mumbai, BITS Pilani, IIT Bombay"
+                    placeholder="XYZ"
                     value={collegeName}
                     onChange={(e) => setCollegeName(e.target.value)}
                     className="text-sm"
@@ -429,7 +429,7 @@ function CreateEmployeeContent() {
                   </label>
                   <Input
                     type="text"
-                    placeholder="e.g. B.Tech Computer Engineering, M.Sc Data Science"
+                    placeholder="XYZ"
                     value={academicDegree}
                     onChange={(e) => setAcademicDegree(e.target.value)}
                     className="text-sm"

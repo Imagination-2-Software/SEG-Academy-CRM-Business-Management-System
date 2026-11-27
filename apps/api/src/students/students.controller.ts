@@ -7,11 +7,16 @@ import {
   Body,
   Query,
   Req,
+  Res,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
-import { Request } from 'express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Request, Response } from 'express';
 import { StudentsService, PaginatedStudentsResponse } from './students.service';
 import {
   CreateStudentDto,
@@ -19,6 +24,8 @@ import {
   QueryStudentsDto,
   CreateStudentDocumentDto,
   VerifyStudentDocumentDto,
+  QueryGlobalDocumentsDto,
+  DirectVerifyDocumentDto,
 } from './dto/students.dto';
 import { Permissions, CurrentUser, AuthenticatedUser } from '../auth';
 
@@ -55,6 +62,32 @@ export class StudentsController {
   }
 
   @Permissions('students:read')
+  @Get('documents')
+  @ApiOperation({ summary: 'List documents across all students with search, filters and pagination' })
+  @ApiResponse({ status: 200, description: 'Paginated global documents list' })
+  async getGlobalDocuments(@Query() query: QueryGlobalDocumentsDto) {
+    return this.studentsService.getGlobalDocuments(query);
+  }
+
+  @Permissions('students:verify')
+  @Patch('documents/:docId/verify')
+  @ApiOperation({ summary: 'Directly verify or reject a document by document ID' })
+  @ApiResponse({ status: 200, description: 'Document verification updated' })
+  @ApiResponse({ status: 404, description: 'Document not found' })
+  async directVerifyDocument(
+    @Param('docId') docId: string,
+    @Body() dto: DirectVerifyDocumentDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const clientMeta = {
+      ipAddress: req.ip || (req.socket?.remoteAddress as string | undefined),
+      userAgent: req.headers['user-agent'] as string | undefined,
+    };
+    return this.studentsService.directVerifyDocument(docId, dto, actor, clientMeta);
+  }
+
+  @Permissions('students:read')
   @Get(':id')
   @ApiOperation({ summary: 'Get full student details by ID' })
   @ApiResponse({ status: 200, description: 'Student details' })
@@ -79,6 +112,51 @@ export class StudentsController {
       userAgent: req.headers['user-agent'] as string | undefined,
     };
     return this.studentsService.updateStudent(id, dto, actor, clientMeta);
+  }
+
+  @Permissions('students:update')
+  @Post(':id/documents/upload')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload binary KYC document directly into secure private storage' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'documentType'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        documentType: { type: 'string', example: 'TRANSCRIPT' },
+        documentName: { type: 'string', example: 'High School Diploma.pdf' },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Document uploaded and attached successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file type, MIME signature mismatch, or file too large' })
+  @ApiResponse({ status: 404, description: 'Student not found' })
+  async uploadDocument(
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+    @Body('documentType') documentType: string,
+    @Body('documentName') documentName: string | undefined,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    if (!file) {
+      throw new BadRequestException('A binary file must be uploaded under form-data key "file".');
+    }
+    const clientMeta = {
+      ipAddress: req.ip || (req.socket?.remoteAddress as string | undefined),
+      userAgent: req.headers['user-agent'] as string | undefined,
+    };
+    return this.studentsService.uploadDocumentBinary(
+      id,
+      file,
+      documentType,
+      documentName,
+      actor,
+      clientMeta,
+    );
   }
 
   @Permissions('students:update')
@@ -124,7 +202,49 @@ export class StudentsController {
   async getDocumentDownloadUrl(
     @Param('id') id: string,
     @Param('docId') docId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
   ) {
-    return this.studentsService.getDocumentDownloadUrl(id, docId);
+    const clientMeta = {
+      ipAddress: req.ip || (req.socket?.remoteAddress as string | undefined),
+      userAgent: req.headers['user-agent'] as string | undefined,
+    };
+    return this.studentsService.getDocumentDownloadUrl(id, docId, actor, clientMeta);
+  }
+
+  @Permissions('students:read')
+  @Get(':id/documents/:docId/stream')
+  @ApiOperation({ summary: 'Stream binary KYC document content safely to authenticated actor' })
+  @ApiResponse({ status: 200, description: 'Binary document stream' })
+  @ApiResponse({ status: 400, description: 'Expired or invalid download link' })
+  @ApiResponse({ status: 404, description: 'Document not found' })
+  async streamDocument(
+    @Param('id') id: string,
+    @Param('docId') docId: string,
+    @Query('expires') expires: string | undefined,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const clientMeta = {
+      ipAddress: req.ip || (req.socket?.remoteAddress as string | undefined),
+      userAgent: req.headers['user-agent'] as string | undefined,
+    };
+    const file = await this.studentsService.streamDocument(
+      id,
+      docId,
+      expires,
+      actor,
+      clientMeta,
+    );
+
+    // Clean filename for Content-Disposition header
+    const cleanFilename = encodeURIComponent(file.documentName).replace(/['()]/g, escape);
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Length', file.buffer.length);
+    res.setHeader('Content-Disposition', `inline; filename="${cleanFilename}"`);
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+
+    res.end(file.buffer);
   }
 }

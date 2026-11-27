@@ -344,3 +344,37 @@ export class VerifyStudentDocumentDto {
   @MaxLength(500)
   rejectionReason?: string;
 }
+
+export class QueryGlobalDocumentsDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 20;
+
+  @ApiPropertyOptional({ description: 'Search term across document name, student name, email or code' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ enum: DocumentVerificationStatus, description: 'Filter by verification status' })
+  @IsOptional()
+  @IsEnum(DocumentVerificationStatus)
+  status?: DocumentVerificationStatus;
+
+  @ApiPropertyOptional({ description: 'Filter by document type (either database or UI code)' })
+  @IsOptional()
+  @IsString()
+  type?: string;
+}
+
+export class DirectVerifyDocumentDto extends VerifyStudentDocumentDto {}

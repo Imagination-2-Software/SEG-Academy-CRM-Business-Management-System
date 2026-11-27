@@ -15,6 +15,7 @@ import {
   getEmploymentTypeBadge,
   getAccountStatusBadge,
 } from '@/lib/api/organization';
+import { useAuth } from '@/lib/auth';
 import {
   UserSquare2,
   Plus,
@@ -31,6 +32,7 @@ import {
 } from 'lucide-react';
 
 export default function EmployeesPage() {
+  const { hasRole, hasPermission } = useAuth();
   const [employees, setEmployees] = useState<ProfileEmployee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [search, setSearch] = useState('');
@@ -70,7 +72,7 @@ export default function EmployeesPage() {
   };
 
   return (
-    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}>
+    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']} requiredPermission="users:read">
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Navigation Tabs */}
         <OrgNav />
@@ -91,12 +93,14 @@ export default function EmployeesPage() {
             </p>
           </div>
 
-          <Link href="/employees/create">
-            <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum-hover shadow-xs">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Employee
-            </Button>
-          </Link>
+          {(hasRole(['FOUNDER_SUPER_ADMIN', 'ADMIN']) || hasPermission('users:create')) && (
+            <Link href="/employees/create">
+              <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum-hover shadow-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Employee
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Filters and Search Bar */}

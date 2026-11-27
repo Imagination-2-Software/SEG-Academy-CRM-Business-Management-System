@@ -7,7 +7,8 @@ import { AppShell } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { apiClient, ApiClientError } from '@/lib/api';
+import { academicService } from '@/lib/api/academic';
+import { ApiClientError } from '@/lib/api';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 
 export default function CreateCoursePage() {
@@ -44,7 +45,7 @@ export default function CreateCoursePage() {
     setIsLoading(true);
 
     try {
-      await apiClient.post('/courses', {
+      await academicService.createCourse({
         code: formData.code.trim().toUpperCase(),
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,

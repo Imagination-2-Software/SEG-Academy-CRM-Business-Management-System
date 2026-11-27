@@ -12,6 +12,10 @@ import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
 import { StudentsModule } from './students/students.module';
 import { AcademicModule } from './academic/academic.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { OrganizationModule } from './organization/organization.module';
+import { TasksModule } from './tasks/tasks.module';
+import { BillingModule } from './billing/billing.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
@@ -37,6 +41,10 @@ import { RateLimiterStorageService } from './common/rate-limiting/rate-limiter-s
     UsersModule,
     StudentsModule,
     AcademicModule,
+    NotificationsModule,
+    OrganizationModule,
+    TasksModule,
+    BillingModule,
   ],
   controllers: [AppController, TestAccessController],
   providers: [

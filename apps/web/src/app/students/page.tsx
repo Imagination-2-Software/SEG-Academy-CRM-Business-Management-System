@@ -6,7 +6,8 @@ import { AppShell } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { apiClient } from '@/lib/api';
+import { studentsService, StudentSummary } from '@/lib/api/students';
+import { useAuth } from '@/lib/auth';
 import {
   GraduationCap,
   Plus,
@@ -21,7 +22,8 @@ import {
 } from 'lucide-react';
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<any[]>([]);
+  const { hasPermission } = useAuth();
+  const [students, setStudents] = useState<StudentSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -32,30 +34,16 @@ export default function StudentsPage() {
   const fetchStudents = async (targetPage = 1, searchTerm = '') => {
     setIsLoading(true);
     try {
-      const query = new URLSearchParams({
-        page: targetPage.toString(),
-        limit: limit.toString(),
+      const res = await studentsService.getStudents({
+        page: targetPage,
+        limit,
+        search: searchTerm,
       });
-      if (searchTerm) query.append('search', searchTerm);
 
-      const res: any = await apiClient.get(`/students?${query.toString()}`);
-      if (res.success && res.data) {
-        if (Array.isArray(res.data)) {
-          setStudents(res.data);
-          if (res.meta) {
-            setTotal(res.meta.total || 0);
-            setTotalPages(res.meta.totalPages || 1);
-            setPage(res.meta.page || targetPage);
-          }
-        } else if (res.data.data) {
-          setStudents(res.data.data);
-          if (res.data.meta) {
-            setTotal(res.data.meta.total || 0);
-            setTotalPages(res.data.meta.totalPages || 1);
-            setPage(res.data.meta.page || targetPage);
-          }
-        }
-      }
+      setStudents(res.data);
+      setTotal(res.meta.total);
+      setTotalPages(res.meta.totalPages);
+      setPage(res.meta.page);
     } catch (err) {
       setStudents([]);
     } finally {
@@ -85,12 +73,14 @@ export default function StudentsPage() {
               Manage student registrations, profile records, and KYC document verifications
             </p>
           </div>
-          <Link href="/students/register">
-            <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum/90 shadow-xs">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Register Student
-            </Button>
-          </Link>
+          {hasPermission('students:create') && (
+            <Link href="/students/register">
+              <Button size="sm" className="bg-seg-plum text-white hover:bg-seg-plum/90 shadow-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Register Student
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Search & Filter Toolbar */}

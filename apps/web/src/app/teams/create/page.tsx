@@ -88,7 +88,7 @@ function CreateTeamContent() {
   };
 
   return (
-    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}>
+    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']} requiredPermission="users:create">
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">

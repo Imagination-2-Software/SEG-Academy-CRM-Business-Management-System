@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -18,17 +18,22 @@ function LoginForm() {
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
   const { user, isAuthenticated, isLoading: isAuthLoading, login } = useAuth();
 
+  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // If already authenticated, redirect immediately to dashboard or redirect destination
-  React.useEffect(() => {
-    if (!isAuthLoading && isAuthenticated) {
+  useEffect(() => {
+    if (mounted && !isAuthLoading && isAuthenticated) {
       router.replace(redirectUrl);
     }
-  }, [isAuthLoading, isAuthenticated, redirectUrl, router]);
+  }, [mounted, isAuthLoading, isAuthenticated, redirectUrl, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +70,18 @@ function LoginForm() {
     }
   };
 
-  if (isAuthLoading || isAuthenticated) {
+  if (!mounted || isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-seg-plum border-t-transparent" />
+          <p className="text-xs text-muted-foreground">Loading authentication interface...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="flex flex-col items-center gap-3">
@@ -194,7 +210,7 @@ export default function LoginPage() {
         {/* Professional Subtle SEG Academy Footer */}
         <footer className="text-center space-y-1.5 pt-1">
           <div className="flex items-center justify-center gap-2 text-[11px] sm:text-xs text-muted-foreground">
-            <span>&copy; {new Date().getFullYear()} SEG Academy</span>
+            <span>&copy; 2026 SEG Academy</span>
             <span>&bull;</span>
             <span>Staff & Faculty Portal</span>
           </div>

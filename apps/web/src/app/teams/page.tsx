@@ -59,7 +59,7 @@ export default function TeamsPage() {
   };
 
   return (
-    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER']}>
+    <AppShell allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']} requiredPermission="users:read">
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Navigation Tabs */}
         <OrgNav />

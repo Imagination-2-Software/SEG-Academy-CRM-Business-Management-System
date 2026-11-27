@@ -2,5 +2,8 @@ export * from './types';
 export * from './client';
 export * from './tasks';
 export * from './users';
+export * from './students';
+export * from './academic';
+export * from './documents';
 export * from './notifications';
 export * from './audit';

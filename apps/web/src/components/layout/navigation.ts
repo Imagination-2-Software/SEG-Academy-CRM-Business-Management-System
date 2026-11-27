@@ -44,6 +44,13 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     requiredPermission: 'courses:read',
   },
   {
+    name: 'Documents & KYC',
+    href: '/documents',
+    icon: ShieldAlert,
+    section: 'Academics',
+    requiredPermission: 'students:read',
+  },
+  {
     name: 'Invoices & Payments',
     href: '/invoices',
     icon: Receipt,
@@ -56,14 +63,16 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/departments',
     icon: Building2,
     section: 'Organization',
-    requiredRoles: ['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'],
+    requiredRoles: ['FOUNDER_SUPER_ADMIN', 'ADMIN'],
+    requiredPermission: 'users:read',
   },
   {
     name: 'Staff & Employees',
     href: '/employees',
     icon: UserSquare2,
     section: 'Organization',
-    requiredRoles: ['FOUNDER_SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'],
+    requiredRoles: ['FOUNDER_SUPER_ADMIN', 'ADMIN'],
+    requiredPermission: 'users:read',
   },
   {
     name: 'Tasks & Reviews',
