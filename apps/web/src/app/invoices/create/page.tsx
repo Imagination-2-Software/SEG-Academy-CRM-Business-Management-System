@@ -312,7 +312,7 @@ export default function CreateInvoicePage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                  <label htmlFor="invoice-student-select" className="mb-1.5 block text-xs font-semibold text-foreground">
                     Select Student <span className="text-red-500">*</span>
                   </label>
                   {isLoadingStudents ? (
@@ -330,6 +330,7 @@ export default function CreateInvoicePage() {
                     </div>
                   ) : (
                     <select
+                      id="invoice-student-select"
                       value={selectedStudentId}
                       onChange={(e) => handleStudentChange(e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -367,10 +368,11 @@ export default function CreateInvoicePage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                    <label htmlFor="invoice-issue-date" className="mb-1.5 block text-xs font-semibold text-foreground">
                       Issue Date <span className="text-red-500">*</span>
                     </label>
                     <Input
+                      id="invoice-issue-date"
                       type="date"
                       value={issueDate}
                       onChange={(e) => setIssueDate(e.target.value)}
@@ -379,10 +381,11 @@ export default function CreateInvoicePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                    <label htmlFor="invoice-due-date" className="mb-1.5 block text-xs font-semibold text-foreground">
                       Payment Due Date <span className="text-red-500">*</span>
                     </label>
                     <Input
+                      id="invoice-due-date"
                       type="date"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
@@ -422,11 +425,15 @@ export default function CreateInvoicePage() {
                     {/* Catalog Helper Row if courses exist */}
                     {courses.length > 0 && (
                       <div className="flex items-center gap-2 pb-1 border-b border-border/40">
-                        <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                        <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
+                        <label
+                          htmlFor={`line-item-course-${it.id}`}
+                          className="text-[11px] text-muted-foreground font-medium shrink-0 cursor-pointer"
+                        >
                           Prepopulate from Course:
-                        </span>
+                        </label>
                         <select
+                          id={`line-item-course-${it.id}`}
                           defaultValue=""
                           onChange={(e) => {
                             if (e.target.value) {
@@ -448,10 +455,11 @@ export default function CreateInvoicePage() {
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <div className="flex-1">
-                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                        <label htmlFor={`line-item-desc-${it.id}`} className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                           Item #{idx + 1} Description
                         </label>
                         <Input
+                          id={`line-item-desc-${it.id}`}
                           type="text"
                           placeholder="e.g. Tuition Fee, Exam Certification, Lab Fee"
                           value={it.description}
@@ -464,10 +472,11 @@ export default function CreateInvoicePage() {
                       </div>
 
                       <div className="w-20">
-                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                        <label htmlFor={`line-item-qty-${it.id}`} className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                           Qty
                         </label>
                         <Input
+                          id={`line-item-qty-${it.id}`}
                           type="number"
                           min="1"
                           value={it.quantity}
@@ -480,10 +489,11 @@ export default function CreateInvoicePage() {
                       </div>
 
                       <div className="w-28">
-                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                        <label htmlFor={`line-item-price-${it.id}`} className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                           Unit Rate (₹)
                         </label>
                         <Input
+                          id={`line-item-price-${it.id}`}
                           type="number"
                           min="0"
                           step="100"
@@ -497,10 +507,11 @@ export default function CreateInvoicePage() {
                       </div>
 
                       <div className="w-24">
-                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                        <label htmlFor={`line-item-tax-${it.id}`} className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                           GST %
                         </label>
                         <select
+                          id={`line-item-tax-${it.id}`}
                           value={it.taxRate}
                           onChange={(e) =>
                             handleItemChange(it.id, 'taxRate', e.target.value)
@@ -515,9 +526,9 @@ export default function CreateInvoicePage() {
                       </div>
 
                       <div className="w-28 text-right">
-                        <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                        <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                           Amount
-                        </label>
+                        </span>
                         <div className="py-2 text-xs font-bold text-foreground">
                           {formatINR(it.quantity * it.unitPrice)}
                         </div>
@@ -530,8 +541,9 @@ export default function CreateInvoicePage() {
                           disabled={items.length <= 1}
                           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-red-600 disabled:opacity-30"
                           title="Remove Item"
+                          aria-label={`Remove Item ${idx + 1}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -546,7 +558,11 @@ export default function CreateInvoicePage() {
                 <FileText className="h-4 w-4 text-seg-plum" />
                 Payment Instructions & Terms
               </h2>
+              <label htmlFor="invoice-notes-textarea" className="sr-only">
+                Payment Instructions & Terms
+              </label>
               <textarea
+                id="invoice-notes-textarea"
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -572,13 +588,16 @@ export default function CreateInvoicePage() {
 
                 <div className="border-t border-border/60 pt-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Discount (Scholarship / Promo):</span>
+                    <label htmlFor="invoice-discount-amount" className="text-muted-foreground cursor-pointer">
+                      Discount (Scholarship / Promo):
+                    </label>
                   </div>
                   <div className="mt-1.5 relative">
                     <span className="absolute left-2.5 top-2 text-xs text-muted-foreground font-semibold">
                       ₹
                     </span>
                     <Input
+                      id="invoice-discount-amount"
                       type="number"
                       min="0"
                       step="100"

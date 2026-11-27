@@ -360,8 +360,13 @@ export default function CoursesPage() {
                       </div>
                       <div className="pt-2">
                         <Link href={`/courses/${c.id}`}>
-                          <Button variant="outline" size="sm" className="w-full text-xs">
-                            <Eye className="mr-1.5 h-3.5 w-3.5" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs"
+                            aria-label={`View Course Offerings and Batches for ${c.title}`}
+                          >
+                            <Eye className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                             View Batches ({c._count?.batches || 0})
                           </Button>
                         </Link>

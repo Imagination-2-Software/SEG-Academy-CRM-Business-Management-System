@@ -331,4 +331,213 @@ describe('BillingService Financial & Invariant Unit Tests', () => {
       /exceeds available refundable balance/,
     );
   });
+
+  it('9. CREDIT NOTES: Should create credit note and return paginated credit note listing', async () => {
+    let createdNote: any = null;
+    const mockInvoice = {
+      id: 'inv-cn-1',
+      studentId: 'stu-cn-1',
+      status: InvoiceStatus.ISSUED,
+    };
+
+    const mockPrisma = {
+      profileEmployee: { findUnique: async () => mockEmployeeProfile },
+      invoice: {
+        findUnique: async () => mockInvoice,
+      },
+      $transaction: async (cb: any) => {
+        const tx = {
+          creditNote: {
+            count: async () => 3,
+            create: async ({ data }: any) => {
+              createdNote = {
+                ...data,
+                id: 'cn-uuid-1',
+                createdAt: new Date(),
+                invoice: { invoiceNumber: 'INV-2026-00001' },
+                student: { fullName: 'Student Test', studentCode: 'SEG-26-0001' },
+              };
+              return createdNote;
+            },
+          },
+        };
+        return cb(tx);
+      },
+      creditNote: {
+        count: async () => 1,
+        findMany: async () => [
+          {
+            id: 'cn-uuid-1',
+            creditNoteNumber: 'CN-2026-00004',
+            invoiceId: 'inv-cn-1',
+            studentId: 'stu-cn-1',
+            amount: 5000,
+            currency: 'INR',
+            reason: 'Scholarship adjustment',
+            status: 'ISSUED',
+            issuedAt: new Date(),
+            createdAt: new Date(),
+            invoice: { id: 'inv-cn-1', invoiceNumber: 'INV-2026-00001', totalAmount: 50000, status: 'ISSUED' },
+            student: { id: 'stu-cn-1', fullName: 'Student Test', studentCode: 'SEG-26-0001', email: 'stu@test.com' },
+            issuedBy: { user: { fullName: 'Finance Officer' } },
+          },
+        ],
+      },
+    };
+
+    const service = new BillingService(mockPrisma as any, mockAuditService as any);
+
+    const result = await service.createCreditNote(
+      'inv-cn-1',
+      { amount: 5000, reason: 'Scholarship adjustment' },
+      financeActor,
+    );
+
+    assert.equal(result.creditNoteNumber, `CN-${new Date().getFullYear()}-00004`);
+    assert.equal(result.amount, 5000);
+
+    const list = await service.getCreditNotes({ page: 1, limit: 10 });
+    assert.equal(list.meta.total, 1);
+    assert.equal(list.data[0].creditNoteNumber, 'CN-2026-00004');
+  });
+
+  it('10. DEBIT NOTES: Should reject debit note on draft invoice and succeed on finalized invoice', async () => {
+    let createdDebitNote: any = null;
+    const mockDraftInvoice: { id: string; studentId: string; status: InvoiceStatus } = {
+      id: 'inv-draft-1',
+      studentId: 'stu-dn-1',
+      status: InvoiceStatus.DRAFT,
+    };
+    const mockFinalizedInvoice: { id: string; studentId: string; status: InvoiceStatus } = {
+      id: 'inv-final-1',
+      studentId: 'stu-dn-1',
+      status: InvoiceStatus.ISSUED,
+    };
+
+    let currentInvoice = mockDraftInvoice;
+
+    const mockPrisma = {
+      profileEmployee: { findUnique: async () => mockEmployeeProfile },
+      invoice: {
+        findUnique: async () => currentInvoice,
+      },
+      $transaction: async (cb: any) => {
+        const tx = {
+          debitNote: {
+            count: async () => 0,
+            create: async ({ data }: any) => {
+              createdDebitNote = {
+                ...data,
+                id: 'dn-uuid-1',
+                createdAt: new Date(),
+                invoice: { invoiceNumber: 'INV-2026-00002' },
+                student: { fullName: 'Student Test 2', studentCode: 'SEG-26-0002' },
+              };
+              return createdDebitNote;
+            },
+          },
+        };
+        return cb(tx);
+      },
+      debitNote: {
+        count: async () => 1,
+        findMany: async () => [
+          {
+            id: 'dn-uuid-1',
+            debitNoteNumber: 'DN-2026-00001',
+            invoiceId: 'inv-final-1',
+            studentId: 'stu-dn-1',
+            amount: 2500,
+            currency: 'INR',
+            reason: 'Lab fee surcharge',
+            status: 'ISSUED',
+            issuedAt: new Date(),
+            createdAt: new Date(),
+            invoice: { id: 'inv-final-1', invoiceNumber: 'INV-2026-00002', totalAmount: 40000, status: 'ISSUED' },
+            student: { id: 'stu-dn-1', fullName: 'Student Test 2', studentCode: 'SEG-26-0002', email: 'stu2@test.com' },
+            issuedBy: { user: { fullName: 'Finance Officer' } },
+          },
+        ],
+      },
+    };
+
+    const service = new BillingService(mockPrisma as any, mockAuditService as any);
+
+    // Draft rejection
+    await assert.rejects(
+      async () => {
+        await service.createDebitNote(
+          'inv-draft-1',
+          { amount: 2500, reason: 'Lab fee surcharge' },
+          financeActor,
+        );
+      },
+      /Debit notes can only be issued against finalized, active invoices/,
+    );
+
+    // Switch to active invoice
+    currentInvoice = mockFinalizedInvoice;
+    const res = await service.createDebitNote(
+      'inv-final-1',
+      { amount: 2500, reason: 'Lab fee surcharge' },
+      financeActor,
+    );
+
+    assert.equal(res.debitNoteNumber, `DN-${new Date().getFullYear()}-00001`);
+    assert.equal(res.amount, 2500);
+
+    const list = await service.getDebitNotes({ page: 1, limit: 10 });
+    assert.equal(list.meta.total, 1);
+    assert.equal(list.data[0].debitNoteNumber, 'DN-2026-00001');
+  });
+
+  it('11. REFUNDS LISTING: Should return paginated refunds with mapped payment and invoice relationships', async () => {
+    const mockPrisma = {
+      refund: {
+        count: async () => 1,
+        findMany: async () => [
+          {
+            id: 'ref-uuid-1',
+            refundNumber: 'REF-2026-00001',
+            paymentId: 'pay-1',
+            invoiceId: 'inv-1',
+            amount: 5000,
+            currency: 'INR',
+            reason: 'Partial tuition refund',
+            status: 'PROCESSED',
+            idempotencyKey: 'idemp-ref-test',
+            processedAt: new Date(),
+            createdAt: new Date(),
+            invoice: {
+              id: 'inv-1',
+              invoiceNumber: 'INV-2026-00001',
+              totalAmount: 50000,
+              paidAmount: 25000,
+              status: 'PARTIALLY_PAID',
+              student: { fullName: 'Student Test', studentCode: 'SEG-26-0001' },
+            },
+            payment: {
+              id: 'pay-1',
+              paymentNumber: 'PAY-2026-00001',
+              amount: 25000,
+              method: 'UPI',
+              status: 'PARTIALLY_REFUNDED',
+            },
+            processedBy: {
+              user: { fullName: 'Finance Officer' },
+            },
+          },
+        ],
+      },
+    };
+
+    const service = new BillingService(mockPrisma as any, mockAuditService as any);
+    const result = await service.getRefunds({ page: 1, limit: 10 });
+
+    assert.equal(result.meta.total, 1);
+    assert.equal(result.data[0].refundNumber, 'REF-2026-00001');
+    assert.equal(result.data[0].amount, 5000);
+    assert.equal(result.data[0].invoice?.invoiceNumber, 'INV-2026-00001');
+    assert.equal(result.data[0].payment?.paymentNumber, 'PAY-2026-00001');
+  });
 });

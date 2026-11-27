@@ -101,10 +101,11 @@ export default function CreateCoursePage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">
+                  <label htmlFor="course-code" className="text-xs font-semibold text-foreground">
                     Course Code <span className="text-destructive">*</span>
                   </label>
                   <Input
+                    id="course-code"
                     name="code"
                     placeholder="e.g. FS-WEB-01"
                     value={formData.code}
@@ -114,10 +115,11 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">
+                  <label htmlFor="course-duration" className="text-xs font-semibold text-foreground">
                     Duration (Weeks) <span className="text-destructive">*</span>
                   </label>
                   <Input
+                    id="course-duration"
                     name="durationWeeks"
                     type="number"
                     min="1"
@@ -129,10 +131,11 @@ export default function CreateCoursePage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
+                <label htmlFor="course-title" className="text-xs font-semibold text-foreground">
                   Course Title <span className="text-destructive">*</span>
                 </label>
                 <Input
+                  id="course-title"
                   name="title"
                   placeholder="e.g. Full Stack Web Development"
                   value={formData.title}
@@ -142,10 +145,11 @@ export default function CreateCoursePage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
+                <label htmlFor="course-description" className="text-xs font-semibold text-foreground">
                   Description / Syllabus Overview
                 </label>
                 <textarea
+                  id="course-description"
                   name="description"
                   rows={3}
                   placeholder="Summary of course objectives and technologies..."
@@ -157,10 +161,11 @@ export default function CreateCoursePage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">
+                  <label htmlFor="course-base-fee" className="text-xs font-semibold text-foreground">
                     Base Tuition Fee (INR) <span className="text-destructive">*</span>
                   </label>
                   <Input
+                    id="course-base-fee"
                     name="baseFee"
                     type="number"
                     min="0"
@@ -171,10 +176,11 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">
+                  <label htmlFor="course-total-credits" className="text-xs font-semibold text-foreground">
                     Total Credits
                   </label>
                   <Input
+                    id="course-total-credits"
                     name="totalCredits"
                     type="number"
                     min="1"

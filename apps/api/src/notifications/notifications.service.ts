@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface NotificationResponse {
@@ -45,8 +50,20 @@ export class NotificationsService {
   }
 
   async markAsRead(id: string, userId: string): Promise<{ success: boolean }> {
-    await this.prisma.notification.updateMany({
-      where: { id, userId },
+    const notification = await this.prisma.notification.findUnique({
+      where: { id },
+    });
+
+    if (!notification) {
+      throw new NotFoundException(`Notification with ID "${id}" was not found.`);
+    }
+
+    if (notification.userId !== userId) {
+      throw new ForbiddenException('You do not have permission to update this notification.');
+    }
+
+    await this.prisma.notification.update({
+      where: { id },
       data: {
         isRead: true,
         readAt: new Date(),
@@ -63,6 +80,26 @@ export class NotificationsService {
         readAt: new Date(),
       },
     });
+    return { success: true };
+  }
+
+  async deleteNotification(id: string, userId: string): Promise<{ success: boolean }> {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id },
+    });
+
+    if (!notification) {
+      throw new NotFoundException(`Notification with ID "${id}" was not found.`);
+    }
+
+    if (notification.userId !== userId) {
+      throw new ForbiddenException('You do not have permission to delete this notification.');
+    }
+
+    await this.prisma.notification.delete({
+      where: { id },
+    });
+
     return { success: true };
   }
 }

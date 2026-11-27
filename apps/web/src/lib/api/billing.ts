@@ -25,6 +25,8 @@ export type PaymentStatus =
   | 'PARTIALLY_REFUNDED';
 
 export type CreditNoteStatus = 'DRAFT' | 'ISSUED' | 'APPLIED' | 'CANCELLED';
+export type DebitNoteStatus = 'DRAFT' | 'ISSUED' | 'APPLIED' | 'CANCELLED';
+export type RefundStatus = 'REQUESTED' | 'APPROVED' | 'PROCESSED' | 'REJECTED';
 
 export interface InvoiceItem {
   id?: string;
@@ -80,6 +82,7 @@ export interface Invoice {
   items: InvoiceItem[];
   payments: Payment[];
   creditNotes?: CreditNote[];
+  debitNotes?: DebitNote[];
 }
 
 export interface Payment {
@@ -112,6 +115,7 @@ export interface Payment {
     fullName: string;
     email: string;
   };
+  refunds?: Refund[];
 }
 
 export interface CreditNote {
@@ -127,12 +131,97 @@ export interface CreditNote {
   notes?: string;
   createdAt: string;
   invoice?: {
+    id: string;
     invoiceNumber: string;
+    totalAmount?: number;
+    status?: InvoiceStatus;
   };
   student?: {
+    id?: string;
     fullName: string;
     studentCode: string;
+    email?: string;
   };
+  issuedByName?: string;
+}
+
+export interface DebitNote {
+  id: string;
+  debitNoteNumber: string;
+  invoiceId: string;
+  studentId: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: DebitNoteStatus;
+  issuedAt?: string;
+  notes?: string;
+  createdAt: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    totalAmount?: number;
+    status?: InvoiceStatus;
+  };
+  student?: {
+    id?: string;
+    fullName: string;
+    studentCode: string;
+    email?: string;
+  };
+  issuedByName?: string;
+}
+
+export interface Refund {
+  id: string;
+  refundNumber: string;
+  paymentId: string;
+  invoiceId: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: RefundStatus;
+  idempotencyKey?: string;
+  processedAt?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: number;
+    paidAmount: number;
+    status: InvoiceStatus;
+    student?: {
+      fullName: string;
+      studentCode: string;
+    };
+  };
+  payment?: {
+    id: string;
+    paymentNumber: string;
+    amount: number;
+    method: PaymentMethod;
+    status: PaymentStatus;
+  };
+  processedByName?: string;
+}
+
+export interface CreateCreditNotePayload {
+  amount: number;
+  reason: string;
+  notes?: string;
+}
+
+export interface CreateDebitNotePayload {
+  amount: number;
+  reason: string;
+  notes?: string;
+}
+
+export interface CreateRefundPayload {
+  amount: number;
+  reason: string;
+  idempotencyKey?: string;
 }
 
 export interface BillingMetrics {
@@ -431,6 +520,131 @@ export const billingService = {
     }
     if (res?.data) return res.data;
     return res || null;
+  },
+
+  async createCreditNote(invoiceId: string, payload: CreateCreditNotePayload): Promise<CreditNote> {
+    const res: any = await apiClient.post(`/invoices/${invoiceId}/credit-notes`, payload);
+    if (res?.success && res?.data) {
+      return res.data;
+    }
+    return res?.data || res;
+  },
+
+  async getCreditNotes(params?: {
+    search?: string;
+    invoiceId?: string;
+    studentId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ creditNotes: CreditNote[]; total: number; meta?: any }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.invoiceId) query.append('invoiceId', params.invoiceId);
+    if (params?.studentId) query.append('studentId', params.studentId);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const res: any = await apiClient.get(`/credit-notes${queryString}`);
+
+    let list: CreditNote[] = [];
+    let total = 0;
+    let meta = undefined;
+
+    if (res?.success && res?.data) {
+      list = Array.isArray(res.data) ? res.data : res.data.data || [];
+      meta = res.meta || res.data?.meta;
+      total = meta?.total ?? list.length;
+    } else if (Array.isArray(res)) {
+      list = res;
+      total = list.length;
+    }
+
+    return { creditNotes: list, total, meta };
+  },
+
+  async createDebitNote(invoiceId: string, payload: CreateDebitNotePayload): Promise<DebitNote> {
+    const res: any = await apiClient.post(`/invoices/${invoiceId}/debit-notes`, payload);
+    if (res?.success && res?.data) {
+      return res.data;
+    }
+    return res?.data || res;
+  },
+
+  async getDebitNotes(params?: {
+    search?: string;
+    invoiceId?: string;
+    studentId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ debitNotes: DebitNote[]; total: number; meta?: any }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.invoiceId) query.append('invoiceId', params.invoiceId);
+    if (params?.studentId) query.append('studentId', params.studentId);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const res: any = await apiClient.get(`/debit-notes${queryString}`);
+
+    let list: DebitNote[] = [];
+    let total = 0;
+    let meta = undefined;
+
+    if (res?.success && res?.data) {
+      list = Array.isArray(res.data) ? res.data : res.data.data || [];
+      meta = res.meta || res.data?.meta;
+      total = meta?.total ?? list.length;
+    } else if (Array.isArray(res)) {
+      list = res;
+      total = list.length;
+    }
+
+    return { debitNotes: list, total, meta };
+  },
+
+  async createRefund(invoiceId: string, paymentId: string, payload: CreateRefundPayload): Promise<Refund> {
+    const res: any = await apiClient.post(`/invoices/${invoiceId}/payments/${paymentId}/refunds`, payload);
+    if (res?.success && res?.data) {
+      return res.data;
+    }
+    return res?.data || res;
+  },
+
+  async getRefunds(params?: {
+    search?: string;
+    invoiceId?: string;
+    paymentId?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ refunds: Refund[]; total: number; meta?: any }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.invoiceId) query.append('invoiceId', params.invoiceId);
+    if (params?.paymentId) query.append('paymentId', params.paymentId);
+    if (params?.status && params.status !== 'ALL') query.append('status', params.status);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const res: any = await apiClient.get(`/refunds${queryString}`);
+
+    let list: Refund[] = [];
+    let total = 0;
+    let meta = undefined;
+
+    if (res?.success && res?.data) {
+      list = Array.isArray(res.data) ? res.data : res.data.data || [];
+      meta = res.meta || res.data?.meta;
+      total = meta?.total ?? list.length;
+    } else if (Array.isArray(res)) {
+      list = res;
+      total = list.length;
+    }
+
+    return { refunds: list, total, meta };
   },
 
   computeMetrics(invoices: Invoice[]): BillingMetrics {

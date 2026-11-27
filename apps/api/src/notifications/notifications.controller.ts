@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Param,
   HttpCode,
   HttpStatus,
@@ -43,5 +44,18 @@ export class NotificationsController {
   @ApiResponse({ status: 200, description: 'All notifications marked as read' })
   async markAllAsRead(@CurrentUser() actor: AuthenticatedUser) {
     return this.notificationsService.markAllAsRead(actor.userId);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete/clear a notification for the current user' })
+  @ApiResponse({ status: 200, description: 'Notification successfully deleted' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Cannot delete another user notification' })
+  @ApiResponse({ status: 404, description: 'Notification not found' })
+  async deleteNotification(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.notificationsService.deleteNotification(id, actor.userId);
   }
 }

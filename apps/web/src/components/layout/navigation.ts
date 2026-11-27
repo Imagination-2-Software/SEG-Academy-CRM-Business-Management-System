@@ -10,6 +10,8 @@ import {
   Bell,
   BarChart3,
   ShieldAlert,
+  FileDown,
+  RotateCcw,
 } from 'lucide-react';
 
 export interface NavigationItem {
@@ -57,6 +59,22 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     section: 'Finance',
     requiredRoles: ['FOUNDER_SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
     requiredPermission: 'invoices:read',
+  },
+  {
+    name: 'Credit & Debit Notes',
+    href: '/credit-notes',
+    icon: FileDown,
+    section: 'Finance',
+    requiredRoles: ['FOUNDER_SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+    requiredPermission: 'invoices:read',
+  },
+  {
+    name: 'Tuition Refunds',
+    href: '/refunds',
+    icon: RotateCcw,
+    section: 'Finance',
+    requiredRoles: ['FOUNDER_SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+    requiredPermission: 'refunds:read',
   },
   {
     name: 'Departments & Teams',

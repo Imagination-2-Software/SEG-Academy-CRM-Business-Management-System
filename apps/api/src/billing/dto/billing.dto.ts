@@ -336,6 +336,108 @@ export class CreateCreditNoteDto {
   notes?: string;
 }
 
+export class QueryCreditNotesDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 20;
+
+  @ApiPropertyOptional({
+    description: 'Search string across credit note number, reason, invoice number or student name',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by invoice UUID',
+  })
+  @IsOptional()
+  @IsUUID('all')
+  invoiceId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by student UUID',
+  })
+  @IsOptional()
+  @IsUUID('all')
+  studentId?: string;
+}
+
+export class CreateDebitNoteDto {
+  @ApiProperty({
+    example: 2500,
+    description: 'Debit note adjustment amount in INR',
+  })
+  @IsNumber({}, { message: 'amount must be a number.' })
+  @Min(0.01, { message: 'Debit note amount must be greater than zero.' })
+  amount!: number;
+
+  @ApiProperty({
+    example: 'Additional lab fee adjustment',
+    description: 'Reason for debit note issuance',
+  })
+  @IsString({ message: 'reason must be a string.' })
+  @IsNotEmpty({ message: 'reason is required.' })
+  reason!: string;
+
+  @ApiPropertyOptional({
+    example: 'Authorized by Academic Director.',
+    description: 'Optional internal remarks',
+  })
+  @IsOptional()
+  @IsString({ message: 'notes must be a string.' })
+  notes?: string;
+}
+
+export class QueryDebitNotesDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 20;
+
+  @ApiPropertyOptional({
+    description: 'Search string across debit note number, reason, invoice number or student name',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by invoice UUID',
+  })
+  @IsOptional()
+  @IsUUID('all')
+  invoiceId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by student UUID',
+  })
+  @IsOptional()
+  @IsUUID('all')
+  studentId?: string;
+}
+
 export class CreateRefundDto {
   @ApiProperty({
     example: 10000,
@@ -360,4 +462,49 @@ export class CreateRefundDto {
   @IsOptional()
   @IsString({ message: 'idempotencyKey must be a string.' })
   idempotencyKey?: string;
+}
+
+export class QueryRefundsDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 20;
+
+  @ApiPropertyOptional({
+    description: 'Search string across refund number, reason, payment number, or invoice number',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by invoice UUID',
+  })
+  @IsOptional()
+  @IsUUID('all')
+  invoiceId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by payment UUID',
+  })
+  @IsOptional()
+  @IsUUID('all')
+  paymentId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by refund status (e.g. REQUESTED, APPROVED, PROCESSED, REJECTED)',
+  })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

@@ -11,7 +11,7 @@
     "setup:founder": "ts-node -r tsconfig-paths/register src/cli-setup-founder.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "tsc -p tsconfig.json --outDir dist-test && node --test dist-test/auth/__tests__/*.spec.js dist-test/users/__tests__/*.spec.js dist-test/roles/__tests__/*.spec.js dist-test/students/__tests__/*.spec.js dist-test/academic/__tests__/*.spec.js dist-test/organization/__tests__/*.spec.js dist-test/tasks/__tests__/*.spec.js dist-test/billing/__tests__/*.spec.js dist-test/common/interceptors/__tests__/*.spec.js dist-test/common/filters/__tests__/*.spec.js dist-test/common/middleware/__tests__/*.spec.js dist-test/common/config/__tests__/*.spec.js dist-test/common/rate-limiting/__tests__/*.spec.js dist-test/common/security/__tests__/*.spec.js dist-test/__tests__/*.spec.js"
+    "test": "tsc -p tsconfig.json --outDir dist-test && node --test dist-test/auth/__tests__/*.spec.js dist-test/users/__tests__/*.spec.js dist-test/roles/__tests__/*.spec.js dist-test/students/__tests__/*.spec.js dist-test/academic/__tests__/*.spec.js dist-test/organization/__tests__/*.spec.js dist-test/tasks/__tests__/*.spec.js dist-test/billing/__tests__/*.spec.js dist-test/notifications/__tests__/*.spec.js dist-test/reports/__tests__/*.spec.js dist-test/common/interceptors/__tests__/*.spec.js dist-test/common/filters/__tests__/*.spec.js dist-test/common/middleware/__tests__/*.spec.js dist-test/common/config/__tests__/*.spec.js dist-test/common/rate-limiting/__tests__/*.spec.js dist-test/common/security/__tests__/*.spec.js dist-test/__tests__/*.spec.js"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.3.10",

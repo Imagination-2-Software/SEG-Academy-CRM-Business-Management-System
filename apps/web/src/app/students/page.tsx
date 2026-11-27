@@ -163,8 +163,13 @@ export default function StudentsPage() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <Link href={`/students/${stu.id}`}>
-                          <Button size="sm" variant="outline" className="h-7 text-xs px-2.5">
-                            <Eye className="mr-1 h-3 w-3" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs px-2.5"
+                            aria-label={`View Student Profile of ${stu.fullName}`}
+                          >
+                            <Eye className="mr-1 h-3 w-3" aria-hidden="true" />
                             View
                           </Button>
                         </Link>

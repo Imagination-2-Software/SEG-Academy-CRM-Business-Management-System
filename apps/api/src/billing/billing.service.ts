@@ -16,12 +16,17 @@ import {
   RecordPaymentDto,
   QueryPaymentsDto,
   CreateCreditNoteDto,
+  QueryCreditNotesDto,
+  CreateDebitNoteDto,
+  QueryDebitNotesDto,
   CreateRefundDto,
+  QueryRefundsDto,
 } from './dto';
 import {
   InvoiceStatus,
   PaymentStatus,
   CreditNoteStatus,
+  DebitNoteStatus,
   RefundStatus,
   Prisma,
 } from '@seg/database';
@@ -755,6 +760,16 @@ export class BillingService {
             user: { select: { fullName: true } },
           },
         },
+        refunds: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            processedBy: {
+              include: {
+                user: { select: { fullName: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -847,6 +862,251 @@ export class BillingService {
       createdAt: note.createdAt.toISOString(),
       invoice: note.invoice,
       student: note.student,
+    };
+  }
+
+  async getCreditNotes(query: QueryCreditNotesDto): Promise<PaginatedResult<any>> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CreditNoteWhereInput = {};
+
+    if (query.invoiceId) {
+      where.invoiceId = query.invoiceId;
+    }
+
+    if (query.studentId) {
+      where.studentId = query.studentId;
+    }
+
+    if (query.search && query.search.trim()) {
+      const s = query.search.trim();
+      where.OR = [
+        { creditNoteNumber: { contains: s, mode: 'insensitive' } },
+        { reason: { contains: s, mode: 'insensitive' } },
+        { invoice: { invoiceNumber: { contains: s, mode: 'insensitive' } } },
+        { student: { fullName: { contains: s, mode: 'insensitive' } } },
+        { student: { studentCode: { contains: s, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [total, records] = await Promise.all([
+      this.prisma.creditNote.count({ where }),
+      this.prisma.creditNote.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          invoice: { select: { id: true, invoiceNumber: true, totalAmount: true, status: true } },
+          student: { select: { id: true, fullName: true, studentCode: true, email: true } },
+          issuedBy: {
+            include: {
+              user: { select: { fullName: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = records.map((cn) => ({
+      id: cn.id,
+      creditNoteNumber: cn.creditNoteNumber,
+      invoiceId: cn.invoiceId,
+      studentId: cn.studentId,
+      amount: Number(cn.amount),
+      currency: cn.currency,
+      reason: cn.reason,
+      status: cn.status,
+      issuedAt: cn.issuedAt?.toISOString(),
+      notes: cn.notes,
+      createdAt: cn.createdAt.toISOString(),
+      invoice: cn.invoice
+        ? {
+            id: cn.invoice.id,
+            invoiceNumber: cn.invoice.invoiceNumber,
+            totalAmount: Number(cn.invoice.totalAmount),
+            status: cn.invoice.status,
+          }
+        : undefined,
+      student: cn.student,
+      issuedByName: cn.issuedBy?.user?.fullName,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  // ==========================================
+  // DEBIT NOTES
+  // ==========================================
+
+  async createDebitNote(
+    invoiceId: string,
+    dto: CreateDebitNoteDto,
+    actor: AuthenticatedUser,
+    clientMeta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const issuer = await this.resolveEmployeeProfile(actor);
+
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException(`Invoice '${invoiceId}' not found.`);
+    }
+
+    if (invoice.status === InvoiceStatus.CANCELLED || invoice.status === InvoiceStatus.DRAFT) {
+      throw new BadRequestException('Debit notes can only be issued against finalized, active invoices.');
+    }
+
+    const year = new Date().getFullYear();
+
+    const note = await this.prisma.$transaction(async (tx) => {
+      const count = await tx.debitNote.count({
+        where: {
+          debitNoteNumber: {
+            startsWith: `DN-${year}-`,
+          },
+        },
+      });
+
+      const serial = (count + 1).toString().padStart(5, '0');
+      const debitNoteNumber = `DN-${year}-${serial}`;
+
+      return tx.debitNote.create({
+        data: {
+          debitNoteNumber,
+          invoiceId,
+          studentId: invoice.studentId,
+          amount: dto.amount,
+          currency: 'INR',
+          reason: dto.reason.trim(),
+          status: DebitNoteStatus.ISSUED,
+          issuedById: issuer.id,
+          issuedAt: new Date(),
+          notes: dto.notes?.trim() || null,
+        },
+        include: {
+          invoice: { select: { invoiceNumber: true } },
+          student: { select: { fullName: true, studentCode: true } },
+        },
+      });
+    });
+
+    await this.auditService.log({
+      actorUserId: actor.userId,
+      action: 'DEBIT_NOTE_ISSUE',
+      resource: 'debit_notes',
+      resourceId: note.id,
+      payload: { debitNoteNumber: note.debitNoteNumber, amount: note.amount },
+      ipAddress: clientMeta?.ipAddress,
+      userAgent: clientMeta?.userAgent,
+    });
+
+    return {
+      id: note.id,
+      debitNoteNumber: note.debitNoteNumber,
+      invoiceId: note.invoiceId,
+      studentId: note.studentId,
+      amount: Number(note.amount),
+      currency: note.currency,
+      reason: note.reason,
+      status: note.status,
+      issuedAt: note.issuedAt?.toISOString(),
+      notes: note.notes,
+      createdAt: note.createdAt.toISOString(),
+      invoice: note.invoice,
+      student: note.student,
+    };
+  }
+
+  async getDebitNotes(query: QueryDebitNotesDto): Promise<PaginatedResult<any>> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.DebitNoteWhereInput = {};
+
+    if (query.invoiceId) {
+      where.invoiceId = query.invoiceId;
+    }
+
+    if (query.studentId) {
+      where.studentId = query.studentId;
+    }
+
+    if (query.search && query.search.trim()) {
+      const s = query.search.trim();
+      where.OR = [
+        { debitNoteNumber: { contains: s, mode: 'insensitive' } },
+        { reason: { contains: s, mode: 'insensitive' } },
+        { invoice: { invoiceNumber: { contains: s, mode: 'insensitive' } } },
+        { student: { fullName: { contains: s, mode: 'insensitive' } } },
+        { student: { studentCode: { contains: s, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [total, records] = await Promise.all([
+      this.prisma.debitNote.count({ where }),
+      this.prisma.debitNote.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          invoice: { select: { id: true, invoiceNumber: true, totalAmount: true, status: true } },
+          student: { select: { id: true, fullName: true, studentCode: true, email: true } },
+          issuedBy: {
+            include: {
+              user: { select: { fullName: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = records.map((dn) => ({
+      id: dn.id,
+      debitNoteNumber: dn.debitNoteNumber,
+      invoiceId: dn.invoiceId,
+      studentId: dn.studentId,
+      amount: Number(dn.amount),
+      currency: dn.currency,
+      reason: dn.reason,
+      status: dn.status,
+      issuedAt: dn.issuedAt?.toISOString(),
+      notes: dn.notes,
+      createdAt: dn.createdAt.toISOString(),
+      invoice: dn.invoice
+        ? {
+            id: dn.invoice.id,
+            invoiceNumber: dn.invoice.invoiceNumber,
+            totalAmount: Number(dn.invoice.totalAmount),
+            status: dn.invoice.status,
+          }
+        : undefined,
+      student: dn.student,
+      issuedByName: dn.issuedBy?.user?.fullName,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
     };
   }
 
@@ -952,6 +1212,119 @@ export class BillingService {
     };
   }
 
+  async getRefunds(query: QueryRefundsDto): Promise<PaginatedResult<any>> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.RefundWhereInput = {};
+
+    if (query.invoiceId) {
+      where.invoiceId = query.invoiceId;
+    }
+
+    if (query.paymentId) {
+      where.paymentId = query.paymentId;
+    }
+
+    if (query.status && query.status !== 'ALL') {
+      if (Object.values(RefundStatus).includes(query.status as RefundStatus)) {
+        where.status = query.status as RefundStatus;
+      }
+    }
+
+    if (query.search && query.search.trim()) {
+      const s = query.search.trim();
+      where.OR = [
+        { refundNumber: { contains: s, mode: 'insensitive' } },
+        { reason: { contains: s, mode: 'insensitive' } },
+        { payment: { paymentNumber: { contains: s, mode: 'insensitive' } } },
+        { invoice: { invoiceNumber: { contains: s, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [total, records] = await Promise.all([
+      this.prisma.refund.count({ where }),
+      this.prisma.refund.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              totalAmount: true,
+              paidAmount: true,
+              status: true,
+              student: { select: { fullName: true, studentCode: true } },
+            },
+          },
+          payment: {
+            select: {
+              id: true,
+              paymentNumber: true,
+              amount: true,
+              method: true,
+              status: true,
+            },
+          },
+          processedBy: {
+            include: {
+              user: { select: { fullName: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = records.map((r) => ({
+      id: r.id,
+      refundNumber: r.refundNumber,
+      paymentId: r.paymentId,
+      invoiceId: r.invoiceId,
+      amount: Number(r.amount),
+      currency: r.currency,
+      reason: r.reason,
+      status: r.status,
+      idempotencyKey: r.idempotencyKey,
+      processedAt: r.processedAt?.toISOString(),
+      rejectionReason: r.rejectionReason,
+      createdAt: r.createdAt.toISOString(),
+      invoice: r.invoice
+        ? {
+            id: r.invoice.id,
+            invoiceNumber: r.invoice.invoiceNumber,
+            totalAmount: Number(r.invoice.totalAmount),
+            paidAmount: Number(r.invoice.paidAmount),
+            status: r.invoice.status,
+            student: r.invoice.student,
+          }
+        : undefined,
+      payment: r.payment
+        ? {
+            id: r.payment.id,
+            paymentNumber: r.payment.paymentNumber,
+            amount: Number(r.payment.amount),
+            method: r.payment.method,
+            status: r.payment.status,
+          }
+        : undefined,
+      processedByName: r.processedBy?.user?.fullName,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
   // ==========================================
   // SERIALIZATION MAPPERS
   // ==========================================
@@ -1018,6 +1391,18 @@ export class BillingService {
         currency: cn.currency,
         reason: cn.reason,
         status: cn.status,
+        issuedAt: cn.issuedAt ? cn.issuedAt.toISOString() : undefined,
+        notes: cn.notes,
+      })),
+      debitNotes: (inv.debitNotes || []).map((dn: any) => ({
+        id: dn.id,
+        debitNoteNumber: dn.debitNoteNumber,
+        amount: Number(dn.amount),
+        currency: dn.currency,
+        reason: dn.reason,
+        status: dn.status,
+        issuedAt: dn.issuedAt ? dn.issuedAt.toISOString() : undefined,
+        notes: dn.notes,
       })),
     };
   }
@@ -1057,6 +1442,17 @@ export class BillingService {
             email: p.student.email,
           }
         : undefined,
+      refunds: (p.refunds || []).map((r: any) => ({
+        id: r.id,
+        refundNumber: r.refundNumber,
+        amount: Number(r.amount),
+        currency: r.currency,
+        reason: r.reason,
+        status: r.status,
+        processedAt: r.processedAt ? r.processedAt.toISOString() : undefined,
+        createdAt: r.createdAt.toISOString(),
+        processedByName: r.processedBy?.user?.fullName,
+      })),
     };
   }
 }

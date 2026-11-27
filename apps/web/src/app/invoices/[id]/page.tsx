@@ -18,6 +18,9 @@ import {
 } from '@/lib/api/billing';
 import { useAuth } from '@/lib/auth';
 import { RecordPaymentModal } from '@/components/billing/record-payment-modal';
+import { CreateCreditNoteModal } from '@/components/billing/create-credit-note-modal';
+import { CreateDebitNoteModal } from '@/components/billing/create-debit-note-modal';
+import { ProcessRefundModal } from '@/components/billing/process-refund-modal';
 import {
   ArrowLeft,
   Printer,
@@ -33,6 +36,9 @@ import {
   Send,
   XCircle,
   AlertTriangle,
+  FileDown,
+  FileUp,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function InvoiceDetailsPage() {
@@ -45,6 +51,9 @@ export default function InvoiceDetailsPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isCreditNoteModalOpen, setIsCreditNoteModalOpen] = useState(false);
+  const [isDebitNoteModalOpen, setIsDebitNoteModalOpen] = useState(false);
+  const [selectedRefundPayment, setSelectedRefundPayment] = useState<any | null>(null);
 
   // Workflow action states
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
@@ -227,6 +236,32 @@ export default function InvoiceDetailsPage() {
               >
                 <Send className="mr-1.5 h-3.5 w-3.5" />
                 Finalize & Issue
+              </Button>
+            )}
+
+            {/* Credit Note Action (Active invoices) */}
+            {invoice.isFinalized && invoice.status !== 'CANCELLED' && hasPermission('invoices:create') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreditNoteModalOpen(true)}
+                className="border-seg-plum/30 text-seg-plum hover:bg-seg-plum-subtle text-xs font-medium"
+              >
+                <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                Credit Note
+              </Button>
+            )}
+
+            {/* Debit Note Action (Active invoices) */}
+            {invoice.isFinalized && invoice.status !== 'CANCELLED' && hasPermission('invoices:create') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDebitNoteModalOpen(true)}
+                className="border-seg-navy/30 text-seg-navy hover:bg-seg-navy-subtle text-xs font-medium"
+              >
+                <FileUp className="mr-1.5 h-3.5 w-3.5" />
+                Debit Note
               </Button>
             )}
 
@@ -528,7 +563,7 @@ export default function InvoiceDetailsPage() {
                     <th className="py-2.5 px-3">Transaction UTR / Ref</th>
                     <th className="py-2.5 px-3 text-right">Amount</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
-                    <th className="py-2.5 px-3 text-right">Receipt</th>
+                    <th className="py-2.5 px-3 text-right">Receipt / Refund</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -550,15 +585,30 @@ export default function InvoiceDetailsPage() {
                         {formatINR(Number(p.amount))}
                       </td>
                       <td className="py-3 px-3 text-center">
-                        <Badge variant="success">Confirmed</Badge>
+                        <Badge variant={p.status === 'REFUNDED' ? 'destructive' : p.status === 'PARTIALLY_REFUNDED' ? 'warning' : 'success'}>
+                          {p.status}
+                        </Badge>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <Link href={`/payments/${p.id}`}>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs">
-                            <ExternalLink className="mr-1 h-3 w-3" />
-                            Receipt
-                          </Button>
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {p.status !== 'REFUNDED' && hasPermission('refunds:create') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40"
+                              onClick={() => setSelectedRefundPayment(p)}
+                            >
+                              <RotateCcw className="mr-1 h-3 w-3" />
+                              Refund
+                            </Button>
+                          )}
+                          <Link href={`/payments/${p.id}`}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs">
+                              <ExternalLink className="mr-1 h-3 w-3" />
+                              Receipt
+                            </Button>
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -571,6 +621,76 @@ export default function InvoiceDetailsPage() {
             </div>
           )}
         </div>
+
+        {/* Credit & Debit Notes Ledger Card */}
+        {((invoice.creditNotes && invoice.creditNotes.length > 0) || (invoice.debitNotes && invoice.debitNotes.length > 0)) && (
+          <div className="rounded-xl border border-border/80 bg-card p-6 shadow-sm print:hidden">
+            <div className="mb-4">
+              <h2 className="text-sm font-bold tracking-tight text-foreground">
+                Adjustment Notes (Credit & Debit Notes)
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Official billing adjustments and fee rectifications issued against this invoice
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Credit Notes Column */}
+              <div>
+                <h3 className="text-xs font-bold text-seg-plum uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <FileDown className="h-4 w-4" /> Credit Notes (Reductions)
+                </h3>
+                {invoice.creditNotes && invoice.creditNotes.length > 0 ? (
+                  <div className="space-y-2">
+                    {invoice.creditNotes.map((cn) => (
+                      <div key={cn.id} className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono font-bold text-foreground">{cn.creditNoteNumber}</span>
+                          <span className="font-bold text-seg-plum">-{formatINR(Number(cn.amount))}</span>
+                        </div>
+                        <div className="mt-1 text-muted-foreground">{cn.reason}</div>
+                        {cn.issuedAt && (
+                          <div className="mt-1 text-[10px] text-muted-foreground">
+                            Issued: {formatDate(cn.issuedAt)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">No credit notes issued.</p>
+                )}
+              </div>
+
+              {/* Debit Notes Column */}
+              <div>
+                <h3 className="text-xs font-bold text-seg-navy uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <FileUp className="h-4 w-4" /> Debit Notes (Surcharges)
+                </h3>
+                {invoice.debitNotes && invoice.debitNotes.length > 0 ? (
+                  <div className="space-y-2">
+                    {invoice.debitNotes.map((dn) => (
+                      <div key={dn.id} className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono font-bold text-foreground">{dn.debitNoteNumber}</span>
+                          <span className="font-bold text-seg-navy">+{formatINR(Number(dn.amount))}</span>
+                        </div>
+                        <div className="mt-1 text-muted-foreground">{dn.reason}</div>
+                        {dn.issuedAt && (
+                          <div className="mt-1 text-[10px] text-muted-foreground">
+                            Issued: {formatDate(dn.issuedAt)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">No debit notes issued.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Record Payment Modal */}
@@ -579,6 +699,43 @@ export default function InvoiceDetailsPage() {
           invoice={invoice}
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
+          onSuccess={() => {
+            fetchInvoice();
+          }}
+        />
+      )}
+
+      {/* Create Credit Note Modal */}
+      {isCreditNoteModalOpen && (
+        <CreateCreditNoteModal
+          invoice={invoice}
+          isOpen={isCreditNoteModalOpen}
+          onClose={() => setIsCreditNoteModalOpen(false)}
+          onSuccess={() => {
+            fetchInvoice();
+          }}
+        />
+      )}
+
+      {/* Create Debit Note Modal */}
+      {isDebitNoteModalOpen && (
+        <CreateDebitNoteModal
+          invoice={invoice}
+          isOpen={isDebitNoteModalOpen}
+          onClose={() => setIsDebitNoteModalOpen(false)}
+          onSuccess={() => {
+            fetchInvoice();
+          }}
+        />
+      )}
+
+      {/* Process Refund Modal */}
+      {selectedRefundPayment && (
+        <ProcessRefundModal
+          invoiceId={invoice.id}
+          payment={selectedRefundPayment}
+          isOpen={!!selectedRefundPayment}
+          onClose={() => setSelectedRefundPayment(null)}
           onSuccess={() => {
             fetchInvoice();
           }}

@@ -5,6 +5,10 @@ node_modules/
 
 # Testing & Coverage
 coverage/
+playwright-report/
+test-results/
+.playwright-auth/
+apps/api/dist-test/
 
 # Next.js
 .next/

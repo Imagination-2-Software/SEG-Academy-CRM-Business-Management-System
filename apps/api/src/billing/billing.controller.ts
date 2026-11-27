@@ -19,7 +19,11 @@ import {
   RecordPaymentDto,
   QueryPaymentsDto,
   CreateCreditNoteDto,
+  QueryCreditNotesDto,
+  CreateDebitNoteDto,
+  QueryDebitNotesDto,
   CreateRefundDto,
+  QueryRefundsDto,
 } from './dto';
 import { Permissions, CurrentUser, AuthenticatedUser } from '../auth';
 
@@ -146,6 +150,14 @@ export class BillingController {
   // CREDIT NOTES
   // ==========================================
 
+  @Permissions('invoices:read')
+  @Get('credit-notes')
+  @ApiOperation({ summary: 'List all credit note adjustments with search and filters' })
+  @ApiResponse({ status: 200, description: 'Paginated credit notes' })
+  async getCreditNotes(@Query() query: QueryCreditNotesDto) {
+    return this.billingService.getCreditNotes(query);
+  }
+
   @Permissions('invoices:create')
   @Post('invoices/:id/credit-notes')
   @HttpCode(HttpStatus.CREATED)
@@ -165,8 +177,46 @@ export class BillingController {
   }
 
   // ==========================================
+  // DEBIT NOTES
+  // ==========================================
+
+  @Permissions('invoices:read')
+  @Get('debit-notes')
+  @ApiOperation({ summary: 'List all debit note adjustments with search and filters' })
+  @ApiResponse({ status: 200, description: 'Paginated debit notes' })
+  async getDebitNotes(@Query() query: QueryDebitNotesDto) {
+    return this.billingService.getDebitNotes(query);
+  }
+
+  @Permissions('invoices:create')
+  @Post('invoices/:id/debit-notes')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Issue an official debit note adjustment against an invoice' })
+  @ApiResponse({ status: 201, description: 'Debit note issued' })
+  async createDebitNote(
+    @Param('id') invoiceId: string,
+    @Body() dto: CreateDebitNoteDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const clientMeta = {
+      ipAddress: req.ip || (req.socket?.remoteAddress as string | undefined),
+      userAgent: req.headers['user-agent'] as string | undefined,
+    };
+    return this.billingService.createDebitNote(invoiceId, dto, actor, clientMeta);
+  }
+
+  // ==========================================
   // REFUNDS
   // ==========================================
+
+  @Permissions('refunds:read')
+  @Get('refunds')
+  @ApiOperation({ summary: 'List all tuition refunds with filters and search' })
+  @ApiResponse({ status: 200, description: 'Paginated refunds' })
+  async getRefunds(@Query() query: QueryRefundsDto) {
+    return this.billingService.getRefunds(query);
+  }
 
   @Permissions('refunds:create')
   @Post('invoices/:id/payments/:pmtId/refunds')

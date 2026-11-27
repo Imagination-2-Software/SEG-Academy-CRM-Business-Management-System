@@ -129,10 +129,11 @@ export default function RegisterStudentPage() {
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-full-name" className="text-xs font-semibold text-foreground">
                       Full Legal Name <span className="text-destructive">*</span>
                     </label>
                     <Input
+                      id="student-full-name"
                       name="fullName"
                       placeholder="XYZ"
                       value={formData.fullName}
@@ -142,10 +143,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-email" className="text-xs font-semibold text-foreground">
                       Email Address <span className="text-destructive">*</span>
                     </label>
                     <Input
+                      id="student-email"
                       name="email"
                       type="email"
                       placeholder="xyz@example.com"
@@ -156,10 +158,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-phone" className="text-xs font-semibold text-foreground">
                       Phone Number
                     </label>
                     <Input
+                      id="student-phone"
                       name="phoneNumber"
                       placeholder="123"
                       value={formData.phoneNumber}
@@ -168,10 +171,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-dob" className="text-xs font-semibold text-foreground">
                       Date of Birth
                     </label>
                     <Input
+                      id="student-dob"
                       name="dateOfBirth"
                       type="date"
                       value={formData.dateOfBirth}
@@ -180,10 +184,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-gender" className="text-xs font-semibold text-foreground">
                       Gender
                     </label>
                     <Input
+                      id="student-gender"
                       name="gender"
                       placeholder="Male / Female / Other"
                       value={formData.gender}
@@ -192,10 +197,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-nationality" className="text-xs font-semibold text-foreground">
                       Nationality
                     </label>
                     <Input
+                      id="student-nationality"
                       name="nationality"
                       placeholder="XYZ"
                       value={formData.nationality}
@@ -212,10 +218,11 @@ export default function RegisterStudentPage() {
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-address1" className="text-xs font-semibold text-foreground">
                       Address Line 1
                     </label>
                     <Input
+                      id="student-address1"
                       name="addressLine1"
                       placeholder="XYZ"
                       value={formData.addressLine1}
@@ -224,10 +231,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-address2" className="text-xs font-semibold text-foreground">
                       Address Line 2
                     </label>
                     <Input
+                      id="student-address2"
                       name="addressLine2"
                       placeholder="XYZ"
                       value={formData.addressLine2}
@@ -236,10 +244,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-city" className="text-xs font-semibold text-foreground">
                       City
                     </label>
                     <Input
+                      id="student-city"
                       name="city"
                       placeholder="XYZ"
                       value={formData.city}
@@ -248,10 +257,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-state" className="text-xs font-semibold text-foreground">
                       State / Province
                     </label>
                     <Input
+                      id="student-state"
                       name="state"
                       placeholder="XYZ"
                       value={formData.state}
@@ -260,10 +270,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-country" className="text-xs font-semibold text-foreground">
                       Country
                     </label>
                     <Input
+                      id="student-country"
                       name="country"
                       placeholder="XYZ"
                       value={formData.country}
@@ -272,10 +283,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-postal-code" className="text-xs font-semibold text-foreground">
                       Postal Code
                     </label>
                     <Input
+                      id="student-postal-code"
                       name="postalCode"
                       placeholder="123"
                       value={formData.postalCode}
@@ -292,10 +304,11 @@ export default function RegisterStudentPage() {
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-guardian-name" className="text-xs font-semibold text-foreground">
                       Guardian Name
                     </label>
                     <Input
+                      id="student-guardian-name"
                       name="guardianName"
                       placeholder="XYZ"
                       value={formData.guardianName}
@@ -304,10 +317,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-guardian-phone" className="text-xs font-semibold text-foreground">
                       Guardian Phone
                     </label>
                     <Input
+                      id="student-guardian-phone"
                       name="guardianPhone"
                       placeholder="123"
                       value={formData.guardianPhone}
@@ -316,10 +330,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-guardian-email" className="text-xs font-semibold text-foreground">
                       Guardian Email
                     </label>
                     <Input
+                      id="student-guardian-email"
                       name="guardianEmail"
                       type="email"
                       placeholder="xyz@example.com"
@@ -329,10 +344,11 @@ export default function RegisterStudentPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">
+                    <label htmlFor="student-emergency-contact" className="text-xs font-semibold text-foreground">
                       Emergency Contact Number
                     </label>
                     <Input
+                      id="student-emergency-contact"
                       name="emergencyContact"
                       placeholder="123"
                       value={formData.emergencyContact}

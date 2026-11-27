@@ -1,4 +1,4 @@
-import { apiClient, tokenStorage } from './client';
+import { apiClient } from './client';
 
 export type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
 export type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'INVITED';
@@ -188,83 +188,6 @@ export function getAccountStatusBadge(status: AccountStatus) {
     default:
       return { label: status, variant: 'neutral' as const };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Seed Data (Reflecting SEG Academy Organizational Architecture)
-// ---------------------------------------------------------------------------
-
-const SEED_DEPARTMENTS: Department[] = [];
-
-const SEED_TEAMS: Team[] = [];
-
-const SEED_EMPLOYEES: ProfileEmployee[] = [];
-
-const LOCAL_STORAGE_DEPTS = 'seg_crm_departments_cache_v1';
-const LOCAL_STORAGE_TEAMS = 'seg_crm_teams_cache_v1';
-const LOCAL_STORAGE_EMPLOYEES = 'seg_crm_employees_cache_v1';
-
-function getStoredDepartments(): Department[] {
-  if (typeof window === 'undefined') return SEED_DEPARTMENTS;
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_DEPTS);
-    if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_DEPTS, JSON.stringify(SEED_DEPARTMENTS));
-      return SEED_DEPARTMENTS;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return SEED_DEPARTMENTS;
-  }
-}
-
-function saveStoredDepartments(data: Department[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_DEPTS, JSON.stringify(data));
-  } catch {}
-}
-
-function getStoredTeams(): Team[] {
-  if (typeof window === 'undefined') return SEED_TEAMS;
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_TEAMS);
-    if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_TEAMS, JSON.stringify(SEED_TEAMS));
-      return SEED_TEAMS;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return SEED_TEAMS;
-  }
-}
-
-function saveStoredTeams(data: Team[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_TEAMS, JSON.stringify(data));
-  } catch {}
-}
-
-function getStoredEmployees(): ProfileEmployee[] {
-  if (typeof window === 'undefined') return SEED_EMPLOYEES;
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_EMPLOYEES);
-    if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_EMPLOYEES, JSON.stringify(SEED_EMPLOYEES));
-      return SEED_EMPLOYEES;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return SEED_EMPLOYEES;
-  }
-}
-
-function saveStoredEmployees(data: ProfileEmployee[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_EMPLOYEES, JSON.stringify(data));
-  } catch {}
 }
 
 // ---------------------------------------------------------------------------

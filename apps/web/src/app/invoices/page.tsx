@@ -418,14 +418,14 @@ export default function InvoicesPage() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border/80 bg-muted/30 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <th className="px-4 py-3">Invoice #</th>
-                    <th className="px-4 py-3">Student</th>
-                    <th className="hidden px-4 py-3 md:table-cell">Course / Batch</th>
-                    <th className="px-4 py-3">Issue / Due Date</th>
-                    <th className="px-4 py-3 text-right">Total (₹)</th>
-                    <th className="px-4 py-3 text-right">Paid / Balance</th>
-                    <th className="px-4 py-3 text-center">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th scope="col" className="px-4 py-3">Invoice #</th>
+                    <th scope="col" className="px-4 py-3">Student</th>
+                    <th scope="col" className="hidden px-4 py-3 md:table-cell">Course / Batch</th>
+                    <th scope="col" className="px-4 py-3">Issue / Due Date</th>
+                    <th scope="col" className="px-4 py-3 text-right">Total (₹)</th>
+                    <th scope="col" className="px-4 py-3 text-right">Paid / Balance</th>
+                    <th scope="col" className="px-4 py-3 text-center">Status</th>
+                    <th scope="col" className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -545,8 +545,9 @@ export default function InvoicesPage() {
                                 size="sm"
                                 className="h-8 px-2 text-xs"
                                 title="View Tax Invoice"
+                                aria-label={`View Tax Invoice ${inv.invoiceNumber}`}
                               >
-                                <Eye className="h-3.5 w-3.5" />
+                                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                               </Button>
                             </Link>
 
@@ -557,8 +558,9 @@ export default function InvoicesPage() {
                                 onClick={() => setActivePaymentInvoice(inv)}
                                 className="h-8 px-2.5 text-xs text-seg-plum hover:bg-seg-plum-subtle hover:text-seg-plum"
                                 title="Record Payment"
+                                aria-label={`Record Payment for ${inv.invoiceNumber}`}
                               >
-                                <CreditCard className="mr-1 h-3.5 w-3.5" />
+                                <CreditCard className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                                 Pay
                               </Button>
                             )}
@@ -569,8 +571,9 @@ export default function InvoicesPage() {
                                 size="sm"
                                 className="h-8 px-2 text-xs"
                                 title="Print Invoice"
+                                aria-label={`Print Invoice ${inv.invoiceNumber}`}
                               >
-                                <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                                <Printer className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                               </Button>
                             </Link>
                           </div>

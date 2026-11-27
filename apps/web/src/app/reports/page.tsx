@@ -3,9 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout';
-import { billingService, formatINR, BillingMetrics } from '@/lib/api/billing';
-import { tasksApi, TaskMetrics } from '@/lib/api/tasks';
-import { organizationService } from '@/lib/api/organization';
+import { formatINR } from '@/lib/api/billing';
+import {
+  reportsApi,
+  BillingSummaryMetrics,
+  TaskSummaryMetrics,
+  OrganizationSummaryMetrics,
+} from '@/lib/api/reports';
 import {
   BarChart3,
   TrendingUp,
@@ -22,7 +26,7 @@ import {
 } from 'lucide-react';
 
 export default function ReportsAnalyticsPage() {
-  const [billingMetrics, setBillingMetrics] = useState<BillingMetrics>({
+  const [billingMetrics, setBillingMetrics] = useState<BillingSummaryMetrics>({
     totalInvoiced: 0,
     totalCollected: 0,
     totalOutstanding: 0,
@@ -30,8 +34,9 @@ export default function ReportsAnalyticsPage() {
     overdueCount: 0,
     paidInvoicesCount: 0,
     pendingInvoicesCount: 0,
+    collectionRate: 0,
   });
-  const [taskMetrics, setTaskMetrics] = useState<TaskMetrics>({
+  const [taskMetrics, setTaskMetrics] = useState<TaskSummaryMetrics>({
     totalTasks: 0,
     assignedTasks: 0,
     inProgressTasks: 0,
@@ -41,36 +46,34 @@ export default function ReportsAnalyticsPage() {
     urgentTasks: 0,
     completionRate: 0,
   });
-  const [employeeCount, setEmployeeCount] = useState(0);
-  const [departmentCount, setDepartmentCount] = useState(0);
+  const [orgMetrics, setOrgMetrics] = useState<OrganizationSummaryMetrics>({
+    employeeCount: 0,
+    departmentCount: 0,
+  });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMetrics = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const summary = await reportsApi.getExecutiveSummary();
+      setBillingMetrics(summary.billing);
+      setTaskMetrics(summary.tasks);
+      setOrgMetrics(summary.organization);
+    } catch (err: any) {
+      console.error('Failed to load reporting data', err);
+      setError(err?.message || 'Failed to load executive reporting data from server.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadMetrics() {
-      try {
-        const [invRes, tasksList, empsList, deptsList] = await Promise.all([
-          billingService.getInvoices({}),
-          tasksApi.getTasks(),
-          organizationService.getEmployees(),
-          organizationService.getDepartments(),
-        ]);
-        setBillingMetrics(invRes.metrics);
-        setTaskMetrics(tasksApi.computeMetrics(tasksList));
-        setEmployeeCount(empsList.length);
-        setDepartmentCount(deptsList.length);
-      } catch (err) {
-        console.error('Failed to load reporting data', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadMetrics();
+    fetchMetrics();
   }, []);
 
-  const collectionRate =
-    billingMetrics.totalInvoiced > 0
-      ? Math.round((billingMetrics.totalCollected / billingMetrics.totalInvoiced) * 100)
-      : 0;
+  const collectionRate = billingMetrics.collectionRate;
 
   const handleExportSummaryCSV = () => {
     const rows = [
@@ -82,8 +85,8 @@ export default function ReportsAnalyticsPage() {
       ['Collection Rate (%)', `${collectionRate}%`],
       ['Total Operational Tasks', taskMetrics.totalTasks.toString()],
       ['Task Completion Rate (%)', `${taskMetrics.completionRate}%`],
-      ['Active Staff & Faculty', employeeCount.toString()],
-      ['Functional Departments', departmentCount.toString()],
+      ['Active Staff & Faculty', orgMetrics.employeeCount.toString()],
+      ['Functional Departments', orgMetrics.departmentCount.toString()],
     ];
 
     const csvContent =
@@ -126,6 +129,18 @@ export default function ReportsAnalyticsPage() {
             <span>Export Executive CSV</span>
           </button>
         </div>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={fetchMetrics}
+              className="text-red-600 hover:text-red-800 font-semibold text-xs ml-4 underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Financial Health Overview */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-2xs space-y-4">
@@ -256,14 +271,14 @@ export default function ReportsAnalyticsPage() {
               <div className="rounded-lg border border-border/60 p-3">
                 <span className="text-muted-foreground">Total Staff Members:</span>
                 <div className="text-lg font-bold text-foreground font-mono mt-0.5">
-                  {employeeCount}
+                  {orgMetrics.employeeCount}
                 </div>
                 <span className="text-[10px] text-muted-foreground">Full-time, contract & interns</span>
               </div>
               <div className="rounded-lg border border-border/60 p-3">
                 <span className="text-muted-foreground">Operating Departments:</span>
                 <div className="text-lg font-bold text-foreground font-mono mt-0.5">
-                  {departmentCount}
+                  {orgMetrics.departmentCount}
                 </div>
                 <span className="text-[10px] text-muted-foreground">Active organizational units</span>
               </div>

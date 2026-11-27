@@ -14,6 +14,8 @@ import {
   formatDate,
   getPaymentMethodLabel,
 } from '@/lib/api/billing';
+import { useAuth } from '@/lib/auth';
+import { ProcessRefundModal } from '@/components/billing/process-refund-modal';
 import {
   ArrowLeft,
   Printer,
@@ -24,9 +26,11 @@ import {
   ExternalLink,
   ShieldCheck,
   AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function PaymentReceiptPage() {
+  const { hasPermission } = useAuth();
   const params = useParams();
   const searchParams = useSearchParams();
   const paymentId = params.id as string;
@@ -34,20 +38,21 @@ export default function PaymentReceiptPage() {
 
   const [payment, setPayment] = useState<Payment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+
+  const fetchPayment = async () => {
+    setIsLoading(true);
+    try {
+      const data = await billingService.getPaymentById(paymentId);
+      setPayment(data);
+    } catch {
+      setPayment(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchPayment = async () => {
-      setIsLoading(true);
-      try {
-        const data = await billingService.getPaymentById(paymentId);
-        setPayment(data);
-      } catch {
-        setPayment(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (paymentId) {
       fetchPayment();
     }
@@ -141,6 +146,18 @@ export default function PaymentReceiptPage() {
                   View Invoice ({payment.invoice.invoiceNumber})
                 </Button>
               </Link>
+            )}
+
+            {payment.status !== 'REFUNDED' && payment.invoice && hasPermission('refunds:create') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsRefundModalOpen(true)}
+                className="border-red-600/30 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 text-xs font-medium"
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Issue Refund
+              </Button>
             )}
 
             <Button
@@ -281,7 +298,52 @@ export default function PaymentReceiptPage() {
             </div>
           </div>
         </div>
+
+        {/* Refund History Ledger for this Payment */}
+        {payment.refunds && payment.refunds.length > 0 && (
+          <div className="rounded-xl border border-border/80 bg-card p-6 shadow-sm print:hidden">
+            <div className="mb-4">
+              <h2 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                <RotateCcw className="h-4 w-4" /> Refund History & Reconciliations
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Tuition refunds processed against this transaction
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {payment.refunds.map((ref) => (
+                <div key={ref.id} className="rounded-lg border border-border/70 bg-muted/20 p-3.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono font-bold text-foreground">{ref.refundNumber}</span>
+                    <span className="font-bold text-red-600 dark:text-red-400">-{formatINR(Number(ref.amount))}</span>
+                  </div>
+                  <div className="mt-1 text-muted-foreground">{ref.reason}</div>
+                  <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
+                    <span>Processed: {formatDate(ref.processedAt || ref.createdAt)}</span>
+                    <Badge variant={ref.status === 'PROCESSED' ? 'destructive' : 'neutral'} className="text-[10px]">
+                      {ref.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Process Refund Modal */}
+      {isRefundModalOpen && payment.invoice && (
+        <ProcessRefundModal
+          invoiceId={payment.invoice.id}
+          payment={payment}
+          isOpen={isRefundModalOpen}
+          onClose={() => setIsRefundModalOpen(false)}
+          onSuccess={() => {
+            fetchPayment();
+          }}
+        />
+      )}
     </AppShell>
   );
 }

@@ -33,6 +33,13 @@ export default function DocumentsDirectoryPage() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Accessible Rejection Reason Modal State
+  const [rejectionModalDoc, setRejectionModalDoc] = useState<StudentDocumentItem | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionValidationError, setRejectionValidationError] = useState<string | null>(null);
+  const rejectionTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const lastActiveElementRef = React.useRef<HTMLElement | null>(null);
+
   const fetchDocs = async () => {
     setIsLoading(true);
     try {
@@ -53,16 +60,17 @@ export default function DocumentsDirectoryPage() {
     fetchDocs();
   }, [search, statusFilter, typeFilter]);
 
-  const handleVerify = async (id: string, status: 'VERIFIED' | 'REJECTED') => {
-    let reason: string | undefined = undefined;
-    if (status === 'REJECTED') {
-      const input = window.prompt('Please enter the reason for rejection:');
-      if (input === null) return; // User cancelled
-      if (!input.trim()) {
-        alert('A rejection reason is required.');
-        return;
+  const handleVerify = async (id: string, status: 'VERIFIED' | 'REJECTED', reasonParam?: string) => {
+    let reason: string | undefined = reasonParam;
+    if (status === 'REJECTED' && !reason) {
+      const docToReject = documents.find((d) => d.id === id);
+      if (docToReject) {
+        lastActiveElementRef.current = document.activeElement as HTMLElement | null;
+        setRejectionModalDoc(docToReject);
+        setRejectionReason('');
+        setRejectionValidationError(null);
       }
-      reason = input.trim();
+      return;
     }
 
     setActionLoadingId(id);
@@ -76,6 +84,52 @@ export default function DocumentsDirectoryPage() {
       setActionLoadingId(null);
     }
   };
+
+  const handleConfirmRejection = async () => {
+    if (!rejectionModalDoc) return;
+    const trimmed = rejectionReason.trim();
+    if (!trimmed) {
+      setRejectionValidationError('A rejection reason is required to notify the student.');
+      rejectionTextareaRef.current?.focus();
+      return;
+    }
+
+    const docId = rejectionModalDoc.id;
+    setRejectionModalDoc(null);
+    setRejectionValidationError(null);
+    if (lastActiveElementRef.current) {
+      lastActiveElementRef.current.focus();
+    }
+    await handleVerify(docId, 'REJECTED', trimmed);
+  };
+
+  const handleCloseRejectionModal = () => {
+    setRejectionModalDoc(null);
+    setRejectionValidationError(null);
+    if (lastActiveElementRef.current) {
+      lastActiveElementRef.current.focus();
+    }
+  };
+
+  // Keyboard navigation & focus management for Rejection Modal
+  useEffect(() => {
+    if (rejectionModalDoc) {
+      const timer = setTimeout(() => {
+        rejectionTextareaRef.current?.focus();
+      }, 50);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          handleCloseRejectionModal();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [rejectionModalDoc]);
 
   const handleDownload = async (studentId: string, documentId: string) => {
     setActionLoadingId(documentId);
@@ -315,6 +369,89 @@ export default function DocumentsDirectoryPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Accessible Rejection Reason Modal (ISSUE-UI-01) */}
+      {rejectionModalDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          onClick={handleCloseRejectionModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rejection-modal-title"
+            aria-describedby="rejection-modal-desc"
+            className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400">
+                <XCircle className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h3 id="rejection-modal-title" className="text-base font-bold text-foreground">
+                  Reject Document
+                </h3>
+                <p id="rejection-modal-desc" className="text-xs text-muted-foreground">
+                  Document: <span className="font-semibold text-foreground">{rejectionModalDoc.title}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <label
+                htmlFor="rejection-reason-textarea"
+                className="block text-xs font-semibold text-foreground"
+              >
+                Rejection Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="rejection-reason-textarea"
+                ref={rejectionTextareaRef}
+                rows={3}
+                value={rejectionReason}
+                onChange={(e) => {
+                  setRejectionReason(e.target.value);
+                  if (rejectionValidationError && e.target.value.trim()) {
+                    setRejectionValidationError(null);
+                  }
+                }}
+                placeholder="State clearly why this document was rejected (e.g. illegible copy, expired date, wrong format)..."
+                className="w-full rounded-md border border-input bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                required
+                aria-required="true"
+                aria-invalid={Boolean(rejectionValidationError)}
+                aria-describedby={rejectionValidationError ? 'rejection-reason-error' : undefined}
+              />
+              {rejectionValidationError && (
+                <p id="rejection-reason-error" className="text-xs font-medium text-red-600 dark:text-red-400">
+                  {rejectionValidationError}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCloseRejectionModal}
+                className="text-xs font-medium"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleConfirmRejection}
+                disabled={!rejectionReason.trim()}
+                className="text-xs font-medium bg-red-600 hover:bg-red-700 text-white"
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

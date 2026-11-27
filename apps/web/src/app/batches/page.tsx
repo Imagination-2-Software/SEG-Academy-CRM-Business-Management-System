@@ -219,13 +219,13 @@ export default function BatchesDirectoryPage() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-border/70 bg-muted/30 uppercase text-[11px] font-semibold text-muted-foreground/80 tracking-wider">
                 <tr>
-                  <th className="px-5 py-3">Batch Code</th>
-                  <th className="px-5 py-3">Cohort Name</th>
-                  <th className="px-5 py-3">Course Offering</th>
-                  <th className="px-5 py-3">Schedule Period</th>
-                  <th className="px-5 py-3">Capacity</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Action</th>
+                  <th scope="col" className="px-5 py-3">Batch Code</th>
+                  <th scope="col" className="px-5 py-3">Cohort Name</th>
+                  <th scope="col" className="px-5 py-3">Course Offering</th>
+                  <th scope="col" className="px-5 py-3">Schedule Period</th>
+                  <th scope="col" className="px-5 py-3">Capacity</th>
+                  <th scope="col" className="px-5 py-3">Status</th>
+                  <th scope="col" className="px-5 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">

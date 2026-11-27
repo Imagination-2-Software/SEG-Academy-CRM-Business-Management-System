@@ -22,16 +22,20 @@ import {
 export default function NotificationsCenterPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [clearingId, setClearingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
   useEffect(() => {
     async function loadNotifications() {
       try {
+        setError(null);
         const data = await notificationsService.getNotifications();
         setNotifications(data);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load notifications', err);
+        setError(err?.message || 'Failed to load notifications from server.');
       } finally {
         setLoading(false);
       }
@@ -40,22 +44,41 @@ export default function NotificationsCenterPage() {
   }, []);
 
   const handleMarkAsRead = async (id: string) => {
-    await notificationsService.markAsRead(id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
-    );
+    try {
+      await notificationsService.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+      );
+    } catch (err: any) {
+      console.error('Failed to mark notification as read', err);
+      setError(err?.message || 'Failed to update notification status.');
+    }
   };
 
   const handleMarkAllAsRead = async () => {
-    await notificationsService.markAllAsRead();
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
-    );
+    try {
+      await notificationsService.markAllAsRead();
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
+      );
+    } catch (err: any) {
+      console.error('Failed to mark all as read', err);
+      setError(err?.message || 'Failed to mark all notifications as read.');
+    }
   };
 
   const handleClear = async (id: string) => {
-    await notificationsService.clearNotification(id);
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      setClearingId(id);
+      setError(null);
+      await notificationsService.clearNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err: any) {
+      console.error('Failed to clear notification', err);
+      setError(err?.message || 'Failed to clear notification on server.');
+    } finally {
+      setClearingId(null);
+    }
   };
 
   const filteredNotifications = useMemo(() => {
@@ -115,6 +138,18 @@ export default function NotificationsCenterPage() {
             )}
           </div>
         </div>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-700 font-semibold text-xs ml-4"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Tab & Filter Bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/80 pb-2">
@@ -238,8 +273,9 @@ export default function NotificationsCenterPage() {
 
                   <button
                     onClick={() => handleClear(notif.id)}
+                    disabled={clearingId === notif.id}
                     title="Dismiss Notification"
-                    className="rounded-md border border-border p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                    className="rounded-md border border-border p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-50"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
