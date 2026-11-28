@@ -50,9 +50,11 @@ export interface AuthenticatedUser {
     code: string;
     name: string;
   };
-  roles: string[];           // Array of role codes (e.g. ['ADMIN'])
+  roles: string[];           // Array of role codes (e.g. ['ADMIN'] or legacy mapped)
   permissions: string[];     // Array of "resource:action" (e.g. ['students:read', 'invoices:create'])
   employeeId?: string;
+  studentId?: string;        // Present when user is a linked student
+  employmentType?: string;   // FULL_TIME, PART_TIME, FACULTY_TRAINER, INTERN
 }
 
 /**

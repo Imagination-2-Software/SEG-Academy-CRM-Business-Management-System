@@ -17,6 +17,7 @@ import { OrganizationModule } from './organization/organization.module';
 import { TasksModule } from './tasks/tasks.module';
 import { BillingModule } from './billing/billing.module';
 import { ReportsModule } from './reports/reports.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
@@ -47,6 +48,7 @@ import { RateLimiterStorageService } from './common/rate-limiting/rate-limiter-s
     TasksModule,
     BillingModule,
     ReportsModule,
+    DashboardModule,
   ],
   controllers: [AppController, TestAccessController],
   providers: [

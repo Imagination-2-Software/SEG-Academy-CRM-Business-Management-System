@@ -20,7 +20,8 @@ import {
   ResendVerificationDto,
 } from './dto/password-reset.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { Public, CurrentUser, AuthenticatedUser } from './decorators/auth.decorators';
+import { InviteStudentDto, ActivateStudentDto } from './dto/student-invitation.dto';
+import { Public, CurrentUser, AuthenticatedUser, Roles } from './decorators/auth.decorators';
 import { RateLimit } from '../common/rate-limiting/rate-limit.decorator';
 
 @ApiTags('Authentication')
@@ -199,5 +200,45 @@ export class AuthController {
       dto.newPassword,
       metadata,
     );
+  }
+
+  @Roles('FOUNDER_SUPER_ADMIN', 'ADMIN')
+  @Post('invite-student')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Invite student and generate cryptographically secure activation token' })
+  @ApiResponse({ status: 201, description: 'Invitation token generated' })
+  @ApiResponse({ status: 409, description: 'Student already activated or not found' })
+  async inviteStudent(
+    @Body() dto: InviteStudentDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ): Promise<{ success: boolean; message: string; invitationToken?: string }> {
+    const clientMeta = {
+      ipAddress: req.ip || (req.socket?.remoteAddress as string | undefined),
+      userAgent: req.headers['user-agent'] as string | undefined,
+    };
+    return this.authService.inviteStudent(
+      dto,
+      { userId: actor.userId, roleCode: actor.role.code },
+      clientMeta,
+    );
+  }
+
+  @Public()
+  @RateLimit({ limit: 5, ttlSeconds: 60, name: 'auth:activate-student', keyPrefix: 'auth_activate_stu' })
+  @Post('activate-student')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Establish credentials and activate student account using invitation token' })
+  @ApiResponse({ status: 200, description: 'Student account activated and session tokens issued' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired invitation token' })
+  async activateStudent(
+    @Body() dto: ActivateStudentDto,
+    @Req() req: Request,
+  ): Promise<AuthResponse> {
+    const metadata = {
+      userAgent: req.headers['user-agent'] as string | undefined,
+      ipAddress: req.ip || (req.socket?.remoteAddress as string | undefined),
+    };
+    return this.authService.activateStudent(dto, metadata);
   }
 }

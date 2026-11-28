@@ -4,6 +4,7 @@ import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { AuthService } from '../auth.service';
 import { PasswordService } from '../password.service';
 import { TokenService } from '../token.service';
+import { TokenStorageService } from '../token-storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('AuthService Rotation & Revocation Unit Tests', () => {
@@ -120,11 +121,14 @@ describe('AuthService Rotation & Revocation Unit Tests', () => {
     },
   } as unknown as PrismaService;
 
+  const tokenStorageService = new TokenStorageService();
+
   const authService = new AuthService(
     mockPrisma,
     passwordService,
     tokenService,
     mockAuditService as any,
+    tokenStorageService,
   );
 
   it('should authenticate valid credentials and issue tokens', async () => {

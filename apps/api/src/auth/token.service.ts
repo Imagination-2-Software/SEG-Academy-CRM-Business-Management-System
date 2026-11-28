@@ -5,9 +5,11 @@ import * as crypto from 'crypto';
 export interface JwtPayload {
   sub: string;           // User ID
   email: string;         // User email
-  roleCode: string;      // Role code, e.g. "ADMIN", "FOUNDER_SUPER_ADMIN"
+  roleCode: string;      // Role code, e.g. "ADMIN", "FOUNDER_SUPER_ADMIN", "EMPLOYEE", "STUDENT"
   fullName: string;      // User full name
   employeeId?: string;   // Employee ID if linked
+  studentId?: string;    // Student ID if linked (Student Portal)
+  employmentType?: string; // Employment type classification (FACULTY_TRAINER, INTERN, etc.)
   iat?: number;
   exp?: number;
 }

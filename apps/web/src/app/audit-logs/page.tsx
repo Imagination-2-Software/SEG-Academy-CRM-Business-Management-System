@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { AppShell } from '@/components/layout';
 import { auditService, AuditLogEntry } from '@/lib/api/audit';
 import {
@@ -14,56 +14,53 @@ import {
   ChevronRight,
   X,
   FileCode,
+  AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [selectedPayload, setSelectedPayload] = useState<AuditLogEntry | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8;
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 10;
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await auditService.getAuditLogs({
+        page: currentPage,
+        limit: pageSize,
+        search: search.trim() || undefined,
+        action: actionFilter !== 'ALL' ? actionFilter : undefined,
+      });
+      setLogs(response.data);
+      setTotalCount(response.meta.total);
+      setTotalPages(Math.max(1, response.meta.totalPages));
+    } catch (err: any) {
+      console.error('Failed to load audit logs', err);
+      setError(err?.message || 'Failed to load audit records from compliance server.');
+      setLogs([]);
+      setTotalCount(0);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize, search, actionFilter]);
 
   useEffect(() => {
-    async function fetchLogs() {
-      try {
-        const data = await auditService.getAuditLogs();
-        setLogs(data);
-      } catch (err) {
-        console.error('Failed to load audit logs', err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchLogs();
-  }, []);
-
-  const filteredLogs = useMemo(() => {
-    return logs.filter((log) => {
-      const q = search.toLowerCase();
-      const matchesSearch =
-        log.action.toLowerCase().includes(q) ||
-        (log.userName && log.userName.toLowerCase().includes(q)) ||
-        (log.userEmail && log.userEmail.toLowerCase().includes(q)) ||
-        (log.ipAddress && log.ipAddress.includes(q)) ||
-        log.resource.toLowerCase().includes(q);
-
-      const matchesAction = actionFilter === 'ALL' || log.action === actionFilter;
-
-      return matchesSearch && matchesAction;
-    });
-  }, [logs, search, actionFilter]);
-
-  const totalPages = Math.ceil(filteredLogs.length / pageSize) || 1;
-  const paginatedLogs = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredLogs.slice(start, start + pageSize);
-  }, [filteredLogs, currentPage, pageSize]);
+  }, [fetchLogs]);
 
   return (
     <AppShell
-      allowedRoles={['FOUNDER_SUPER_ADMIN', 'ADMIN']}
+      allowedRoles={['FOUNDER_SUPER_ADMIN']}
     >
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Header */}
@@ -78,10 +75,27 @@ export default function AuditLogsPage() {
               </h1>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Cryptographic audit logs, authentication access events, and sensitive data mutation histories.
+              Cryptographic audit logs, authentication access events, and sensitive data mutation histories. (Founder Super Admin Only)
             </p>
           </div>
         </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => fetchLogs()}
+              className="inline-flex items-center gap-1 rounded-md bg-destructive/20 hover:bg-destructive/30 px-2.5 py-1 text-xs font-semibold text-destructive transition-colors"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="rounded-xl border border-border bg-card p-4 shadow-2xs">
@@ -142,23 +156,23 @@ export default function AuditLogsPage() {
                       Loading audit records...
                     </td>
                   </tr>
-                ) : paginatedLogs.length === 0 ? (
+                ) : logs.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                       No security audit events match the active search.
                     </td>
                   </tr>
                 ) : (
-                  paginatedLogs.map((log) => (
+                  logs.map((log) => (
                     <tr key={log.id} className="hover:bg-muted/30 transition-colors">
                       <td className="py-3.5 px-4 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
-                        {new Date(log.createdAt).toISOString().replace('T', ' ').slice(0, 19)}
+                        {log.createdAt ? new Date(log.createdAt).toISOString().replace('T', ' ').slice(0, 19) : '—'}
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex flex-col">
-                          <span className="font-semibold text-foreground">{log.userName || 'System Service'}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">{log.userRole || 'SYSTEM'}</span>
+                          <span className="font-semibold text-foreground">{log.userName || log.actor?.fullName || 'System Service'}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{log.userRole || log.actor?.roleCode || 'SYSTEM'}</span>
                         </div>
                       </td>
 
@@ -198,15 +212,15 @@ export default function AuditLogsPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between border-t border-border/80 px-4 py-3 bg-muted/10 text-xs">
             <div className="text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{filteredLogs.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
-              <span className="font-semibold text-foreground">{Math.min(currentPage * pageSize, filteredLogs.length)}</span> of{' '}
-              <span className="font-semibold text-foreground">{filteredLogs.length}</span> audit logs
+              Showing <span className="font-semibold text-foreground">{logs.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-semibold text-foreground">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
+              <span className="font-semibold text-foreground">{totalCount}</span> audit logs
             </div>
 
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                disabled={currentPage <= 1}
+                disabled={currentPage <= 1 || loading}
                 className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-foreground disabled:opacity-40 hover:bg-muted"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -216,7 +230,7 @@ export default function AuditLogsPage() {
               </span>
               <button
                 onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                disabled={currentPage >= totalPages}
+                disabled={currentPage >= totalPages || loading}
                 className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-foreground disabled:opacity-40 hover:bg-muted"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -250,18 +264,37 @@ export default function AuditLogsPage() {
                   <span className="font-mono font-bold text-seg-plum">{selectedPayload.action}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Resource Target:</span>{' '}
-                  <span className="font-mono text-foreground">{selectedPayload.resource} ({selectedPayload.resourceId})</span>
+                  <span className="text-muted-foreground">Resource:</span>{' '}
+                  <span className="font-mono font-bold text-foreground">{selectedPayload.resource}</span>
                 </div>
+                {selectedPayload.resourceId && (
+                  <div>
+                    <span className="text-muted-foreground">Resource ID:</span>{' '}
+                    <span className="font-mono text-foreground">{selectedPayload.resourceId}</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-muted-foreground">Actor:</span>{' '}
-                  <span className="font-semibold text-foreground">{selectedPayload.userName}</span> ({selectedPayload.userEmail})
+                  <span className="font-semibold text-foreground">
+                    {selectedPayload.userName || selectedPayload.actor?.fullName || 'System'}
+                  </span>{' '}
+                  <span className="text-muted-foreground font-mono">
+                    ({selectedPayload.userEmail || selectedPayload.actor?.email || 'N/A'})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">IP Address:</span>{' '}
+                  <span className="font-mono text-foreground">{selectedPayload.ipAddress || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">User Agent:</span>{' '}
+                  <span className="font-mono text-[11px] text-foreground break-all">{selectedPayload.userAgent || '—'}</span>
                 </div>
 
                 <div className="pt-2">
-                  <span className="text-muted-foreground block mb-1">State Payload JSON:</span>
-                  <pre className="max-h-60 overflow-auto rounded-lg border border-border/80 bg-muted/40 p-3 font-mono text-[11px] text-foreground">
-                    {JSON.stringify(selectedPayload.payload, null, 2)}
+                  <span className="text-muted-foreground block mb-1">Payload JSON:</span>
+                  <pre className="max-h-60 overflow-y-auto rounded-lg bg-muted/60 p-3 font-mono text-[11px] text-foreground border border-border/60">
+                    {JSON.stringify(selectedPayload.payload || {}, null, 2)}
                   </pre>
                 </div>
               </div>

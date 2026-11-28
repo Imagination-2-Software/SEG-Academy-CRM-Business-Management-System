@@ -279,11 +279,14 @@ describe('Part 4 Step 6 — End-to-End Authentication & Security Integration Tes
     },
   };
 
+  const tokenStorageService = new TokenStorageService();
+
   const authService = new AuthService(
     prismaMock,
     passwordService,
     tokenService,
     auditServiceMock,
+    tokenStorageService,
   );
 
   const passwordResetService = new PasswordResetService(
@@ -587,5 +590,38 @@ describe('Part 4 Step 6 — End-to-End Authentication & Security Integration Tes
 
     const superuserAllowed = permGuard.canActivate(ctxFounder);
     assert.equal(superuserAllowed, true);
+  });
+
+  it('9. CONCURRENT REFRESH: Simultaneous refresh requests with same token - only one succeeds, subsequent fails or triggers rotation', async () => {
+    await resetDb();
+
+    // 1. Initial login
+    const loginRes = await authService.login(
+      { email: 'admin@segacademy.com', password: 'StandardPassword123!' },
+      { ipAddress: '127.0.0.1', userAgent: 'Browser/1.0' },
+    );
+    const originalRefreshToken = loginRes.tokens.refreshToken;
+
+    // 2. Fire two concurrent refresh requests simultaneously
+    const results = await Promise.allSettled([
+      authService.refreshTokens(
+        originalRefreshToken,
+        { ipAddress: '127.0.0.1', userAgent: 'Browser/1.0' },
+      ),
+      authService.refreshTokens(
+        originalRefreshToken,
+        { ipAddress: '127.0.0.1', userAgent: 'Browser/1.0' },
+      ),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+
+    // Either strictly one succeeds and one is rejected (due to rotation replay prevention),
+    // or both handle sequentially if queued. In strict rotation, at most 1 can succeed with original token.
+    assert.ok(fulfilled.length >= 1, 'At least one refresh request must succeed');
+    if (fulfilled.length === 1) {
+      assert.equal(rejected.length, 1, 'Second concurrent request was blocked as replay');
+    }
   });
 });

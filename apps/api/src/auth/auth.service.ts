@@ -11,6 +11,8 @@ import { TokenService, JwtPayload } from './token.service';
 import { LoginDto } from './dto/auth.dto';
 import { SetupFounderDto } from './dto/setup-founder.dto';
 import { AuditService } from '../audit/audit.service';
+import { TokenStorageService } from './token-storage.service';
+import { InviteStudentDto, ActivateStudentDto } from './dto/student-invitation.dto';
 
 export interface AuthTokens {
   accessToken: string;
@@ -30,6 +32,8 @@ export interface AuthResponse {
       name: string;
     };
     employeeId?: string;
+    studentId?: string;
+    employmentType?: string;
   };
   tokens: AuthTokens;
 }
@@ -43,6 +47,7 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly tokenService: TokenService,
     private readonly auditService: AuditService,
+    private readonly tokenStorage: TokenStorageService,
   ) {}
 
   /**
@@ -61,7 +66,7 @@ export class AuthService {
       include: {
         role: true,
         employee: {
-          select: { id: true },
+          select: { id: true, employmentType: true },
         },
       },
     });
@@ -98,6 +103,18 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    // Check if user is linked to a student record (by matching email safely)
+    let linkedStudentId: string | undefined = undefined;
+    if (user.role.code === 'STUDENT') {
+      const studentRecord = await this.prisma.profileStudent.findUnique({
+        where: { email: user.email },
+        select: { id: true },
+      });
+      if (studentRecord) {
+        linkedStudentId = studentRecord.id;
+      }
+    }
+
     // Generate JWT Access Token
     const jwtPayload: Omit<JwtPayload, 'iat' | 'exp'> = {
       sub: user.id,
@@ -105,6 +122,8 @@ export class AuthService {
       roleCode: user.role.code,
       fullName: user.fullName,
       employeeId: user.employee?.id,
+      studentId: linkedStudentId,
+      employmentType: user.employee?.employmentType,
     };
 
     const accessToken = this.tokenService.signAccessToken(jwtPayload);
@@ -136,6 +155,8 @@ export class AuthService {
           name: user.role.name,
         },
         employeeId: user.employee?.id,
+        studentId: linkedStudentId,
+        employmentType: user.employee?.employmentType,
       },
       tokens: {
         accessToken,
@@ -526,6 +547,218 @@ export class AuthService {
     return {
       success: true,
       message: 'Password changed successfully. Your account is secured with Argon2id.',
+    };
+  }
+
+  /**
+   * Invites an existing student to the Student Portal.
+   * Creates an inactive/invited User record with role STUDENT if none exists.
+   * Generates a cryptographically random single-use token (valid for 48 hours).
+   * Prevents duplicate linked accounts.
+   * Never leaks temporary passwords in responses.
+   */
+  async inviteStudent(
+    dto: InviteStudentDto,
+    actor: { userId: string; roleCode: string },
+    clientMeta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<{ success: boolean; message: string; invitationToken?: string }> {
+    // 1. Verify student exists
+    const student = await this.prisma.profileStudent.findUnique({
+      where: { id: dto.studentId },
+    });
+
+    if (!student) {
+      throw new ConflictException('Student profile not found.');
+    }
+
+    // 2. Prevent duplicate linked accounts
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: student.email.toLowerCase().trim() },
+      include: { role: true },
+    });
+
+    let targetUserId: string;
+
+    if (existingUser) {
+      if (existingUser.status === 'ACTIVE') {
+        throw new ConflictException(
+          `Student account is already active with email: ${student.email}. Duplicate account prohibited.`,
+        );
+      }
+      targetUserId = existingUser.id;
+    } else {
+      // Find or provision STUDENT role safely
+      let studentRole = await this.prisma.role.findUnique({
+        where: { code: 'STUDENT' },
+      });
+
+      if (!studentRole) {
+        studentRole = await this.prisma.role.create({
+          data: {
+            code: 'STUDENT',
+            name: 'Student',
+            description: 'External student access to personal learning and billing data.',
+            isSystem: true,
+          },
+        });
+      }
+
+      // Generate placeholder hash for invited state
+      const placeholderHash = await this.passwordService.hashPassword(
+        this.passwordService.generateRandomToken(32),
+      );
+
+      // Create User in INVITED status
+      const newUser = await this.prisma.user.create({
+        data: {
+          email: student.email.toLowerCase().trim(),
+          passwordHash: placeholderHash,
+          fullName: student.fullName,
+          phoneNumber: student.phoneNumber,
+          roleId: studentRole.id,
+          status: 'INVITED',
+        },
+      });
+      targetUserId = newUser.id;
+    }
+
+    // 3. Generate cryptographic 32-byte opaque token
+    const rawInvitationToken = this.passwordService.generateRandomToken(32);
+    const tokenHash = this.tokenStorage.hashToken(rawInvitationToken);
+
+    // 4. Store token hash with 48 hours expiry (2880 minutes)
+    await this.tokenStorage.storeToken(
+      targetUserId,
+      tokenHash,
+      'STUDENT_INVITATION',
+      2880,
+    );
+
+    // 5. Audit log invitation issuance
+    await this.auditService.log({
+      actorUserId: actor.userId,
+      action: 'STUDENT_INVITATION_ISSUED',
+      resource: 'Student',
+      resourceId: student.id,
+      payload: {
+        studentCode: student.studentCode,
+        email: student.email,
+        targetUserId,
+      },
+      ipAddress: clientMeta?.ipAddress,
+      userAgent: clientMeta?.userAgent,
+    });
+
+    this.logger.log(`Student invitation token generated for student ${student.id} (${student.email}).`);
+
+    return {
+      success: true,
+      message: `Invitation generated successfully for ${student.email}. Student can establish credentials via the secure activation link.`,
+      invitationToken: rawInvitationToken, // Returned to caller (Admin UI or test suite) to send via email link
+    };
+  }
+
+  /**
+   * Activates a student account using the invitation token.
+   * Performs atomic single-use validation, verifies token expiration,
+   * updates status to ACTIVE, hashes new password with Argon2id, and issues session tokens.
+   */
+  async activateStudent(
+    dto: ActivateStudentDto,
+    metadata?: { userAgent?: string; ipAddress?: string },
+  ): Promise<AuthResponse> {
+    const tokenHash = this.tokenStorage.hashToken(dto.token);
+
+    // Atomically validate and consume token
+    const tokenEntry = await this.tokenStorage.consumeToken(
+      tokenHash,
+      'STUDENT_INVITATION',
+    );
+
+    if (!tokenEntry) {
+      throw new UnauthorizedException(
+        'Invalid, expired, or already-consumed invitation token. Please contact your administrator for a new invite.',
+      );
+    }
+
+    // Hash the student's chosen password
+    const passwordHash = await this.passwordService.hashPassword(dto.password);
+
+    // Update User account to ACTIVE
+    const updatedUser = await this.prisma.user.update({
+      where: { id: tokenEntry.userId },
+      data: {
+        passwordHash,
+        status: 'ACTIVE',
+        lastLoginAt: new Date(),
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    // Check linked student record
+    const studentRecord = await this.prisma.profileStudent.findUnique({
+      where: { email: updatedUser.email },
+      select: { id: true },
+    });
+
+    // Generate session JWT & Refresh token
+    const jwtPayload: Omit<JwtPayload, 'iat' | 'exp'> = {
+      sub: updatedUser.id,
+      email: updatedUser.email,
+      roleCode: updatedUser.role.code,
+      fullName: updatedUser.fullName,
+      studentId: studentRecord?.id,
+    };
+
+    const accessToken = this.tokenService.signAccessToken(jwtPayload);
+    const rawRefreshToken = this.passwordService.generateRandomToken(32);
+    const refreshTokenHash = this.passwordService.hashToken(rawRefreshToken);
+    const expiresAt = this.tokenService.getRefreshTokenExpiryDate();
+
+    await this.prisma.refreshToken.create({
+      data: {
+        userId: updatedUser.id,
+        tokenHash: refreshTokenHash,
+        expiresAt,
+        userAgent: metadata?.userAgent,
+        ipAddress: metadata?.ipAddress,
+      },
+    });
+
+    // Audit log activation
+    await this.auditService.log({
+      actorUserId: updatedUser.id,
+      action: 'STUDENT_ACCOUNT_ACTIVATED',
+      resource: 'User',
+      resourceId: updatedUser.id,
+      payload: {
+        email: updatedUser.email,
+        studentId: studentRecord?.id,
+      },
+      ipAddress: metadata?.ipAddress,
+      userAgent: metadata?.userAgent,
+    });
+
+    return {
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        role: {
+          id: updatedUser.role.id,
+          code: updatedUser.role.code,
+          name: updatedUser.role.name,
+        },
+        studentId: studentRecord?.id,
+      },
+      tokens: {
+        accessToken,
+        refreshToken: rawRefreshToken,
+        tokenType: 'Bearer',
+        expiresIn: this.tokenService.getAccessTokenTtlSeconds(),
+      },
     };
   }
 }

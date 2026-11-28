@@ -46,36 +46,23 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadOperationalMetrics() {
       try {
-        const [studentsRes, batchesRes, invoicesRes, employeesRes]: any[] = await Promise.all([
-          apiClient.get('/students?limit=1').catch(() => null),
-          apiClient.get('/batches').catch(() => null),
-          apiClient.get('/invoices').catch(() => null),
-          apiClient.get('/employees').catch(() => null),
-        ]);
-
-        const totalStudents = studentsRes?.data?.pagination?.total || (Array.isArray(studentsRes?.data) ? studentsRes.data.length : 0);
-        const batches = Array.isArray(batchesRes?.data) ? batchesRes.data : [];
-        const invoices = Array.isArray(invoicesRes?.data) ? invoicesRes.data : [];
-        const employees = Array.isArray(employeesRes?.data) ? employeesRes.data : [];
-
-        const activeBatchesCount = batches.filter((b: any) => b.status === 'UPCOMING' || b.status === 'ONGOING').length;
-        const totalRevenue = invoices
-          .filter((inv: any) => inv.status === 'PAID')
-          .reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
-        const pendingInvoicesCount = invoices.filter((inv: any) => inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID').length;
-
-        setStats({
-          activeEnrolments: totalStudents,
-          activeBatches: activeBatchesCount,
-          reconciledRevenue: totalRevenue,
-          totalEmployees: employees.length,
-          pendingInvoices: pendingInvoicesCount,
-          upcomingCohorts: batches.filter((b: any) => b.status === 'UPCOMING').length,
-          pendingKyc: 0,
-          capacityAvg: 0,
-        });
+        const res: any = await apiClient.get('/dashboard/overview');
+        if (res?.data) {
+          const d = res.data;
+          setStats({
+            activeEnrolments: Number(d.activeEnrolments) || 0,
+            activeBatches: Number(d.activeBatches) || 0,
+            reconciledRevenue: Number(d.reconciledRevenue) || 0,
+            totalEmployees: Number(d.totalEmployees) || 0,
+            pendingInvoices: Number(d.pendingInvoices) || 0,
+            upcomingCohorts: Number(d.upcomingCohorts) || 0,
+            pendingKyc: Number(d.pendingKyc) || 0,
+            capacityAvg: Number(d.capacityAvg) || 0,
+          });
+        }
       } catch (err) {
-        // Fallback to verified 0 counts on initial blank production database
+        // Fallback to verified 0 counts on initial blank production database or network failure
+        console.error('Failed to load operational overview metrics:', err);
       } finally {
         setIsLoading(false);
       }

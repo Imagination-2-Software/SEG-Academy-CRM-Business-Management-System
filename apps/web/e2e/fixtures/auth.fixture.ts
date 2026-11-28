@@ -10,7 +10,19 @@ const REFRESH_TOKEN_KEY = 'seg_crm_refresh_token';
  * This sets up `sessionStorage` and `localStorage` matching `TokenStorage` and `AuthProvider`.
  */
 export async function authenticateAsPersona(page: Page, persona: TestPersona): Promise<void> {
-  // Navigate to root to establish origin before injecting storage
+  // 1. Mock the auth/refresh endpoint to prevent synthetic token rejection triggering seg:auth:expired
+  await page.route('**/api/v1/auth/refresh*', async (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: persona.tokens,
+      }),
+    });
+  });
+
+  // 2. Set up initial script to populate storage before page scripts execute
   await page.addInitScript(
     ({ userKey, accessKey, refreshKey, user, tokens }) => {
       window.sessionStorage.setItem(accessKey, tokens.accessToken);

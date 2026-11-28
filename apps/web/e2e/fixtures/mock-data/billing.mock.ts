@@ -1,0 +1,220 @@
+import { MOCK_STUDENT } from './students.mock';
+
+/**
+ * SEG Academy CRM - Centralized Billing & Financial E2E Mock Data
+ */
+
+export const MOCK_INVOICES = [
+  {
+    id: 'inv-e2e-001',
+    invoiceNumber: 'INV-2026-0001',
+    studentId: 'stu-e2e-001',
+    issueDate: '2026-11-01',
+    dueDate: '2026-11-15',
+    subtotal: 55000,
+    taxAmount: 9900,
+    discountAmount: 0,
+    totalAmount: 64900,
+    paidAmount: 0,
+    currency: 'INR',
+    status: 'ISSUED',
+    version: 1,
+    isFinalized: true,
+    notes: 'Tuition fee for academic enrollment.',
+    createdAt: '2026-11-01T10:00:00.000Z',
+    updatedAt: '2026-11-01T10:00:00.000Z',
+    student: MOCK_STUDENT,
+    batch: {
+      id: 'bat-e2e-001',
+      name: 'Full Stack Web Dev Batch 1',
+      code: 'FSWD-B1',
+      course: {
+        id: 'cou-e2e-001',
+        name: 'Full Stack Web Development',
+        code: 'FSWD-101',
+      },
+    },
+    items: [
+      {
+        id: 'item-001',
+        description: 'Tuition Fee - Academic Program (Semester 1)',
+        quantity: 1,
+        unitPrice: 50000,
+        taxRate: 18,
+        amount: 50000,
+      },
+      {
+        id: 'item-002',
+        description: 'Lab & LMS Access Pass',
+        quantity: 1,
+        unitPrice: 5000,
+        taxRate: 18,
+        amount: 5000,
+      },
+    ],
+    payments: [],
+  },
+  {
+    id: 'inv-e2e-002',
+    invoiceNumber: 'INV-2026-0002',
+    studentId: 'stu-e2e-001',
+    issueDate: '2026-11-05',
+    dueDate: '2026-11-20',
+    subtotal: 30000,
+    taxAmount: 5400,
+    discountAmount: 2000,
+    totalAmount: 33400,
+    paidAmount: 33400,
+    currency: 'INR',
+    status: 'PAID',
+    version: 1,
+    isFinalized: true,
+    notes: 'Advance tuition payment settled in full.',
+    createdAt: '2026-11-05T10:00:00.000Z',
+    updatedAt: '2026-11-06T10:00:00.000Z',
+    student: MOCK_STUDENT,
+    items: [
+      {
+        id: 'item-003',
+        description: 'Data Science Certification Course',
+        quantity: 1,
+        unitPrice: 30000,
+        taxRate: 18,
+        amount: 30000,
+      },
+    ],
+    payments: [
+      {
+        id: 'pay-e2e-001',
+        paymentNumber: 'PAY-2026-0001',
+        invoiceId: 'inv-e2e-002',
+        studentId: 'stu-e2e-001',
+        amount: 33400,
+        currency: 'INR',
+        method: 'UPI',
+        status: 'CONFIRMED',
+        transactionReference: 'UPI-REF-9876543210',
+        idempotencyKey: 'idemp-pay-001',
+        paidAt: '2026-11-06T11:00:00.000Z',
+        createdAt: '2026-11-06T11:00:00.000Z',
+      },
+    ],
+  },
+  {
+    id: 'inv-e2e-003',
+    invoiceNumber: 'INV-2026-0003',
+    studentId: 'stu-e2e-001',
+    issueDate: '2026-11-10',
+    dueDate: '2026-11-25',
+    subtotal: 20000,
+    taxAmount: 3600,
+    discountAmount: 0,
+    totalAmount: 23600,
+    paidAmount: 0,
+    currency: 'INR',
+    status: 'DRAFT',
+    version: 1,
+    isFinalized: false,
+    notes: 'Draft preliminary invoice awaiting approval.',
+    createdAt: '2026-11-10T10:00:00.000Z',
+    updatedAt: '2026-11-10T10:00:00.000Z',
+    student: MOCK_STUDENT,
+    items: [
+      {
+        id: 'item-004',
+        description: 'UI/UX Design Bootcamp',
+        quantity: 1,
+        unitPrice: 20000,
+        taxRate: 18,
+        amount: 20000,
+      },
+    ],
+    payments: [],
+  },
+];
+
+export const MOCK_PAYMENTS = [
+  {
+    id: 'pay-e2e-001',
+    paymentNumber: 'PAY-2026-0001',
+    invoiceId: 'inv-e2e-002',
+    studentId: 'stu-e2e-001',
+    amount: 33400,
+    currency: 'INR',
+    method: 'UPI',
+    status: 'CONFIRMED',
+    transactionReference: 'UPI-REF-9876543210',
+    idempotencyKey: 'idemp-pay-001',
+    notes: 'Payment confirmed via UPI gateway.',
+    paidAt: '2026-11-06T11:00:00.000Z',
+    createdAt: '2026-11-06T11:00:00.000Z',
+    invoice: {
+      id: 'inv-e2e-002',
+      invoiceNumber: 'INV-2026-0002',
+      totalAmount: 33400,
+      student: MOCK_STUDENT,
+    },
+    refunds: [],
+  },
+];
+
+export const MOCK_CREDIT_NOTES = [
+  {
+    id: 'cn-e2e-001',
+    noteNumber: 'CN-2026-0001',
+    invoiceId: 'inv-e2e-001',
+    amount: 5000,
+    reason: 'Academic scholarship fee reduction approved by Dean.',
+    status: 'APPLIED',
+    createdAt: '2026-11-03T10:00:00.000Z',
+    invoice: {
+      id: 'inv-e2e-001',
+      invoiceNumber: 'INV-2026-0001',
+      totalAmount: 64900,
+      student: MOCK_STUDENT,
+    },
+  },
+];
+
+export const MOCK_DEBIT_NOTES = [
+  {
+    id: 'dn-e2e-001',
+    noteNumber: 'DN-2026-0001',
+    invoiceId: 'inv-e2e-001',
+    amount: 1500,
+    reason: 'Late batch enrollment administrative processing fee.',
+    status: 'ISSUED',
+    createdAt: '2026-11-04T12:00:00.000Z',
+    invoice: {
+      id: 'inv-e2e-001',
+      invoiceNumber: 'INV-2026-0001',
+      totalAmount: 64900,
+      student: MOCK_STUDENT,
+    },
+  },
+];
+
+export const MOCK_REFUNDS = [
+  {
+    id: 'ref-e2e-001',
+    refundNumber: 'REF-2026-0001',
+    paymentId: 'pay-e2e-001',
+    invoiceId: 'inv-e2e-002',
+    amount: 5000,
+    reason: 'Security deposit refund upon completion.',
+    status: 'PROCESSED',
+    processedAt: '2026-11-08T15:00:00.000Z',
+    createdAt: '2026-11-08T14:30:00.000Z',
+    payment: {
+      id: 'pay-e2e-001',
+      paymentNumber: 'PAY-2026-0001',
+      amount: 33400,
+      method: 'UPI',
+      invoice: {
+        id: 'inv-e2e-002',
+        invoiceNumber: 'INV-2026-0002',
+        student: MOCK_STUDENT,
+      },
+    },
+  },
+];

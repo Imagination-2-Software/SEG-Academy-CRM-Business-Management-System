@@ -4,7 +4,7 @@ import * as crypto from 'crypto';
 export interface StoredTokenEntry {
   userId: string;
   tokenHash: string;
-  purpose: 'PASSWORD_RESET' | 'EMAIL_VERIFICATION';
+  purpose: 'PASSWORD_RESET' | 'EMAIL_VERIFICATION' | 'STUDENT_INVITATION';
   expiresAt: Date;
   used: boolean;
   createdAt: Date;
@@ -34,7 +34,7 @@ export class TokenStorageService {
   async storeToken(
     userId: string,
     tokenHash: string,
-    purpose: 'PASSWORD_RESET' | 'EMAIL_VERIFICATION',
+    purpose: 'PASSWORD_RESET' | 'EMAIL_VERIFICATION' | 'STUDENT_INVITATION',
     expiresInMinutes: number,
   ): Promise<StoredTokenEntry> {
     // Invalidate existing unused tokens for this user and purpose
@@ -64,7 +64,7 @@ export class TokenStorageService {
    */
   async consumeToken(
     tokenHash: string,
-    expectedPurpose: 'PASSWORD_RESET' | 'EMAIL_VERIFICATION',
+    expectedPurpose: 'PASSWORD_RESET' | 'EMAIL_VERIFICATION' | 'STUDENT_INVITATION',
   ): Promise<StoredTokenEntry | null> {
     const entry = this.store.get(tokenHash);
     if (!entry) {

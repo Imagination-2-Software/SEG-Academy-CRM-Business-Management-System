@@ -73,7 +73,7 @@ export class JwtAuthGuard implements CanActivate {
           },
         },
         employee: {
-          select: { id: true },
+          select: { id: true, employmentType: true },
         },
       },
     });
@@ -88,6 +88,18 @@ export class JwtAuthGuard implements CanActivate {
         `JwtAuthGuard: User ${userRecord.id} account is currently ${userRecord.status}.`,
       );
       throw new UnauthorizedException('User account is inactive or suspended.');
+    }
+
+    // Check if user is linked to a student record
+    let linkedStudentId: string | undefined = payload.studentId;
+    if (!linkedStudentId && userRecord.role.code === 'STUDENT') {
+      const studentRecord = await this.prisma.profileStudent.findUnique({
+        where: { email: userRecord.email },
+        select: { id: true },
+      });
+      if (studentRecord) {
+        linkedStudentId = studentRecord.id;
+      }
     }
 
     // 5. Flatten permissions into array of "resource:action" strings
@@ -108,6 +120,8 @@ export class JwtAuthGuard implements CanActivate {
       roles: [userRecord.role.code],
       permissions,
       employeeId: userRecord.employee?.id,
+      studentId: linkedStudentId,
+      employmentType: userRecord.employee?.employmentType,
     };
 
     // Attach to request context

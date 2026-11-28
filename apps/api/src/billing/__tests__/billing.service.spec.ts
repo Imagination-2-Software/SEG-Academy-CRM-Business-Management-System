@@ -540,4 +540,111 @@ describe('BillingService Financial & Invariant Unit Tests', () => {
     assert.equal(result.data[0].invoice?.invoiceNumber, 'INV-2026-00001');
     assert.equal(result.data[0].payment?.paymentNumber, 'PAY-2026-00001');
   });
+
+  it('12. SEQUENTIAL PAYMENTS: Multiple sequential partial payments accumulate and transition invoice to PAID', async () => {
+    let currentPaid = 0;
+    let currentStatus: any = InvoiceStatus.ISSUED;
+
+    const mockInvoice: any = {
+      id: 'inv-seq-1',
+      invoiceNumber: 'INV-2026-00099',
+      studentId: 'stu-1',
+      totalAmount: 10000,
+      currency: 'INR',
+      status: InvoiceStatus.ISSUED,
+      isFinalized: true,
+      paidAmount: 0,
+      student: { id: 'stu-1', email: 'stu@test.com' },
+      payments: [],
+    };
+
+    const mockPrisma: any = {
+      profileEmployee: {
+        findUnique: async () => ({
+          id: 'emp-fin-1',
+          userId: financeActor.userId,
+          user: { id: financeActor.userId, fullName: financeActor.fullName, email: financeActor.email, role: financeActor.role },
+        }),
+      },
+      invoice: {
+        findUnique: async () => ({
+          ...mockInvoice,
+          paidAmount: currentPaid,
+          status: currentStatus,
+        }),
+      },
+      payment: {
+        findUnique: async () => null,
+      },
+      $transaction: async (cb: any) => {
+        const tx = {
+          payment: {
+            findUnique: async () => null,
+            count: async () => 1,
+            create: async ({ data }: any) => {
+              currentPaid += Number(data.amount);
+              if (currentPaid >= 10000) {
+                currentStatus = InvoiceStatus.PAID;
+              } else {
+                currentStatus = InvoiceStatus.PARTIALLY_PAID;
+              }
+              return {
+                id: `pay-${Date.now()}`,
+                paymentNumber: 'PAY-2026-00001',
+                ...data,
+                invoice: {
+                  id: 'inv-seq-1',
+                  invoiceNumber: 'INV-2026-00099',
+                  totalAmount: 10000,
+                  paidAmount: currentPaid,
+                  status: currentStatus,
+                },
+                student: { id: 'stu-1', studentCode: 'SEG-26-0001', fullName: 'Test', email: 'stu@test.com' },
+                createdAt: new Date(),
+              };
+            },
+          },
+          invoice: {
+            update: async ({ data }: any) => {
+              currentStatus = data.status;
+              return { ...mockInvoice, paidAmount: currentPaid, status: currentStatus };
+            },
+          },
+        };
+        return cb(tx);
+      },
+    };
+
+    const service = new BillingService(mockPrisma as any, mockAuditService as any);
+
+    // Payment 1: 3000 (Partial)
+    const p1 = await service.recordPayment(
+      'inv-seq-1',
+      { amount: 3000, method: PaymentMethod.UPI, idempotencyKey: 'idemp-seq-1' },
+      financeActor,
+      { ipAddress: '127.0.0.1' },
+    );
+    assert.equal(currentPaid, 3000);
+    assert.equal(currentStatus, InvoiceStatus.PARTIALLY_PAID);
+
+    // Payment 2: 4000 (Partial)
+    const p2 = await service.recordPayment(
+      'inv-seq-1',
+      { amount: 4000, method: PaymentMethod.BANK_TRANSFER, idempotencyKey: 'idemp-seq-2' },
+      financeActor,
+      { ipAddress: '127.0.0.1' },
+    );
+    assert.equal(currentPaid, 7000);
+    assert.equal(currentStatus, InvoiceStatus.PARTIALLY_PAID);
+
+    // Payment 3: 3000 (Reaches exactly 10,000 -> PAID)
+    const p3 = await service.recordPayment(
+      'inv-seq-1',
+      { amount: 3000, method: PaymentMethod.CREDIT_CARD, idempotencyKey: 'idemp-seq-3' },
+      financeActor,
+      { ipAddress: '127.0.0.1' },
+    );
+    assert.equal(currentPaid, 10000);
+    assert.equal(currentStatus, InvoiceStatus.PAID);
+  });
 });

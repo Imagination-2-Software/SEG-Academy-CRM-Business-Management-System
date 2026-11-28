@@ -51,8 +51,28 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
+    // Explicit backward-compatible legacy role mappings without modifying production records:
+    // Legacy roles mapping to unified EMPLOYEE category
+    const legacyEmployeeRoles = ['EMPLOYEE_INTERN', 'TRAINER_FACULTY', 'TEAM_LEADER'];
+
+    // Expand user roles with evaluated categories
+    const effectiveUserRoles = new Set<string>(user.roles);
+    if (user.roles.some((r) => legacyEmployeeRoles.includes(r))) {
+      effectiveUserRoles.add('EMPLOYEE');
+    }
+
     // 4. Verify whether user possesses at least one of the required roles
-    const hasRole = requiredRoles.some((role) => user.roles.includes(role));
+    // An endpoint requiring 'EMPLOYEE' accepts consolidated 'EMPLOYEE' as well as legacy staff roles
+    const hasRole = requiredRoles.some((role) => {
+      if (effectiveUserRoles.has(role)) {
+        return true;
+      }
+      // If the route specifically requests legacy roles, handle gracefully
+      if (role === 'EMPLOYEE' && user.roles.some((r) => legacyEmployeeRoles.includes(r))) {
+        return true;
+      }
+      return false;
+    });
 
     if (!hasRole) {
       this.logger.warn(
